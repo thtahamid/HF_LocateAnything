@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LocateAnything — Documentation</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --bg-card2: #1c2333;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #7ee787;
+  --accent3: #d2a8ff;
+  --accent4: #ff7b72;
+  --accent5: #ffa657;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+.container { max-width: 720px; width: 100%; }
+h1 {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.subtitle { color: var(--text-dim); margin-bottom: 2.5rem; font-size: 1.05rem; }
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s, transform 0.2s;
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+.card h2 { font-size: 1.2rem; margin-bottom: 0.4rem; }
+.card p { color: var(--text-dim); font-size: 0.95rem; }
+.tag {
+  display: inline-block;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  margin-top: 0.6rem;
+  margin-right: 0.4rem;
+  font-weight: 500;
+}
+.tag-arch { background: rgba(88,166,255,0.15); color: var(--accent); }
+.tag-exp { background: rgba(126,231,135,0.15); color: var(--accent2); }
+.tag-ml { background: rgba(210,168,255,0.15); color: var(--accent3); }
+.footer { margin-top: 2.5rem; text-align: center; color: var(--text-dim); font-size: 0.85rem; }
+.footer a { color: var(--accent); text-decoration: none; }
+.footer a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>LocateAnything</h1>
+  <p class="subtitle">Documentation &amp; experiment design</p>
+
+  <a href="architecture/index.html" class="card">
+    <h2>Architecture Deep Dive</h2>
+    <p>Detailed breakdown of the LocateAnything model — parallel box decoding, vision encoder, language understanding, and animated SVG visualizations.</p>
+    <span class="tag tag-arch">Architecture</span>
+  </a>
+
+  <a href="discussions/experiment_design.html" class="card">
+    <h2>Microscopy Baseline Experiments</h2>
+    <p>Experimental design for evaluating LocateAnything on electron microscopy segmentation benchmarks (Lucchi++ and Kasthuri++) against Micro-SAM.</p>
+    <span class="tag tag-exp">Experiments</span>
+  </a>
+
+  <a href="discussions/ml_intern_experiment_design.html" class="card">
+    <h2>Baseline Performance — Microscopy Domain</h2>
+    <p>Comprehensive experiment plan covering dataset preprocessing, evaluation metrics (mIoU, Dice, PQ), and training/fine-tuning strategy for microscopy adaptation.</p>
+    <span class="tag tag-ml">ML Intern</span>
+  </a>
+
+  <div class="footer">
+    <p>Paper: <a href="https://arxiv.org/abs/2605.27365" target="_blank" rel="noopener">arxiv.org/abs/2605.27365</a> &middot; Model: <a href="https://huggingface.co/nvidia/LocateAnything-3B" target="_blank" rel="noopener">nvidia/LocateAnything-3B</a></p>
+  </div>
+</div>
+</body>
+</html>
