@@ -1,0 +1,1336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LocateAnything — Microscopy Baseline Experiments</title>
+<style>
+:root {
+  --bg-primary: #0a0e17;
+  --bg-secondary: #111827;
+  --bg-card: #1a2236;
+  --bg-card-hover: #1f2b42;
+  --accent-green: #76b900;
+  --accent-blue: #4fc3f7;
+  --accent-purple: #b388ff;
+  --accent-orange: #ffab40;
+  --accent-red: #ff5252;
+  --accent-cyan: #18ffff;
+  --text-primary: #e8eaf6;
+  --text-secondary: #90a4ae;
+  --text-dim: #546e7a;
+  --border: #263238;
+  --glow-green: rgba(118, 185, 0, 0.3);
+  --glow-blue: rgba(79, 195, 247, 0.3);
+  --glow-purple: rgba(179, 136, 255, 0.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.7;
+  overflow-x: hidden;
+}
+/* Scrollbar */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent-green); }
+/* Navigation */
+.nav-bar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
+  background: rgba(10, 14, 23, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 2rem;
+  display: flex; align-items: center; gap: 2rem;
+}
+.nav-bar .logo { font-weight: 700; font-size: 0.9rem; color: var(--accent-green); letter-spacing: 0.1em; }
+.nav-bar a {
+  color: var(--text-secondary); text-decoration: none; font-size: 0.75rem;
+  transition: color 0.3s; letter-spacing: 0.05em;
+}
+.nav-bar a:hover { color: var(--accent-green); }
+/* Hero */
+.hero {
+  min-height: 100vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  padding: 6rem 2rem 4rem; position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 30%, rgba(118,185,0,0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 70%, rgba(79,195,247,0.05) 0%, transparent 50%);
+}
+.hero h1 {
+  font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800;
+  background: linear-gradient(135deg, var(--accent-green), var(--accent-blue));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 1rem; animation: fadeInUp 1s ease;
+}
+.hero .subtitle {
+  font-size: clamp(0.9rem, 2vw, 1.1rem); color: var(--text-secondary);
+  max-width: 700px; animation: fadeInUp 1s 0.2s ease both;
+}
+.hero .badges { display: flex; gap: 1rem; margin-top: 2rem; flex-wrap: wrap; justify-content: center; animation: fadeInUp 1s 0.4s ease both; }
+.badge {
+  padding: 0.4rem 1rem; border-radius: 20px; font-size: 0.7rem;
+  border: 1px solid var(--border); background: var(--bg-card);
+  letter-spacing: 0.05em;
+}
+.badge.green { border-color: var(--accent-green); color: var(--accent-green); }
+.badge.blue { border-color: var(--accent-blue); color: var(--accent-blue); }
+.badge.purple { border-color: var(--accent-purple); color: var(--accent-purple); }
+.scroll-cue {
+  position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+  animation: bounce 2s infinite;
+}
+/* Sections */
+section { padding: 5rem 2rem; max-width: 1200px; margin: 0 auto; }
+.section-title {
+  font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem;
+  display: flex; align-items: center; gap: 0.8rem;
+}
+.section-title .num {
+  font-size: 0.8rem; padding: 0.3rem 0.7rem; border-radius: 6px;
+  background: var(--bg-card); border: 1px solid var(--border); color: var(--accent-green);
+}
+.section-desc { color: var(--text-secondary); margin-bottom: 3rem; max-width: 700px; font-size: 0.9rem; }
+/* Cards */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 2rem; margin-bottom: 2rem;
+  transition: border-color 0.3s, transform 0.3s;
+}
+.card:hover { border-color: var(--accent-green); transform: translateY(-2px); }
+.card h3 { color: var(--accent-green); margin-bottom: 1rem; font-size: 1rem; }
+.card p, .card li { font-size: 0.85rem; color: var(--text-secondary); }
+.card ul { padding-left: 1.2rem; }
+.card li { margin-bottom: 0.4rem; }
+/* Grid */
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+.grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
+.grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+@media (max-width: 900px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+/* Tables */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+th { background: var(--bg-card); color: var(--accent-green); padding: 0.8rem 1rem; text-align: left; border-bottom: 2px solid var(--border); }
+td { padding: 0.7rem 1rem; border-bottom: 1px solid var(--border); color: var(--text-secondary); }
+tr:hover td { background: rgba(118,185,0,0.03); }
+.highlight { color: var(--accent-green); font-weight: 600; }
+/* SVG Container */
+.svg-container {
+  width: 100%; display: flex; justify-content: center; align-items: center;
+  padding: 2rem 0; margin: 2rem 0;
+}
+.svg-container svg { max-width: 100%; height: auto; }
+/* Animations */
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(10px); } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+@keyframes dashTo { to { stroke-dashoffset: 0; } }
+@keyframes growWidth { from { width: 0; } }
+@keyframes drawLine { to { stroke-dashoffset: 0; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes scaleIn { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@keyframes slideRight { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes typewriter { from { width: 0; } to { width: 100%; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes glow { 0%, 100% { filter: drop-shadow(0 0 2px var(--accent-green)); } 50% { filter: drop-shadow(0 0 8px var(--accent-green)); } }
+/* Flow Diagram */
+.flow-step { transition: transform 0.3s; cursor: default; }
+.flow-step:hover { transform: scale(1.02); }
+.flow-step:hover rect { stroke: var(--accent-green); stroke-width: 2; }
+/* Comparison Bars */
+.bar-container { margin: 0.8rem 0; }
+.bar-label { display: flex; justify-content: space-between; font-size: 0.75rem; margin-bottom: 0.3rem; }
+.bar-track { height: 8px; background: var(--bg-card); border-radius: 4px; overflow: hidden; }
+.bar-fill {
+  height: 100%; border-radius: 4px;
+  animation: growWidth 1.5s ease forwards;
+  transform-origin: left;
+}
+.bar-fill.green { background: linear-gradient(90deg, var(--accent-green), #a5d650); }
+.bar-fill.blue { background: linear-gradient(90deg, var(--accent-blue), #81d4fa); }
+.bar-fill.purple { background: linear-gradient(90deg, var(--accent-purple), #d1c4ff); }
+.bar-fill.orange { background: linear-gradient(90deg, var(--accent-orange), #ffd180); }
+/* Metric Cards */
+.metric-card {
+  text-align: center; padding: 1.5rem; border-radius: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+}
+.metric-value { font-size: 2rem; font-weight: 800; }
+.metric-value.green { color: var(--accent-green); }
+.metric-value.blue { color: var(--accent-blue); }
+.metric-value.purple { color: var(--accent-purple); }
+.metric-value.orange { color: var(--accent-orange); }
+.metric-label { font-size: 0.7rem; color: var(--text-dim); margin-top: 0.3rem; letter-spacing: 0.1em; }
+/* Pipeline */
+.pipeline-step {
+  display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem;
+  padding: 1rem; background: var(--bg-card); border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.step-num {
+  width: 32px; height: 32px; border-radius: 50%; display: flex;
+  align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700;
+  flex-shrink: 0;
+}
+.step-num.green { background: rgba(118,185,0,0.15); color: var(--accent-green); border: 1px solid var(--accent-green); }
+.step-num.blue { background: rgba(79,195,247,0.15); color: var(--accent-blue); border: 1px solid var(--accent-blue); }
+.step-content h4 { font-size: 0.85rem; margin-bottom: 0.2rem; }
+.step-content p { font-size: 0.75rem; color: var(--text-dim); }
+/* Footer */
+footer {
+  text-align: center; padding: 3rem 2rem; border-top: 1px solid var(--border);
+  color: var(--text-dim); font-size: 0.75rem;
+}
+/* Tooltip */
+.tooltip { position: relative; cursor: help; border-bottom: 1px dashed var(--text-dim); }
+/* Tabs */
+.tab-container { margin: 2rem 0; }
+.tab-buttons { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.tab-btn {
+  padding: 0.5rem 1.2rem; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--bg-card); color: var(--text-secondary); font-size: 0.75rem;
+  cursor: pointer; transition: all 0.3s; font-family: inherit;
+}
+.tab-btn.active, .tab-btn:hover { border-color: var(--accent-green); color: var(--accent-green); }
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+/* Timeline */
+.timeline { position: relative; padding-left: 2rem; }
+.timeline::before {
+  content: ''; position: absolute; left: 8px; top: 0; bottom: 0;
+  width: 2px; background: var(--border);
+}
+.timeline-item { position: relative; margin-bottom: 2rem; }
+.timeline-item::before {
+  content: ''; position: absolute; left: -1.65rem; top: 0.4rem;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent-green); border: 2px solid var(--bg-primary);
+  box-shadow: 0 0 8px var(--glow-green);
+}
+.timeline-item h4 { font-size: 0.9rem; margin-bottom: 0.3rem; }
+.timeline-item p { font-size: 0.8rem; color: var(--text-secondary); }
+/* Code blocks */
+.code-block {
+  background: var(--bg-secondary); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1.2rem; margin: 1rem 0; overflow-x: auto;
+  font-size: 0.8rem; line-height: 1.6;
+}
+.code-block .comment { color: var(--text-dim); }
+.code-block .keyword { color: var(--accent-purple); }
+.code-block .string { color: var(--accent-green); }
+.code-block .func { color: var(--accent-blue); }
+.code-block .num { color: var(--accent-orange); }
+/* Accent text */
+.accent-green { color: var(--accent-green); }
+.accent-blue { color: var(--accent-blue); }
+.accent-purple { color: var(--accent-purple); }
+.accent-orange { color: var(--accent-orange); }
+/* Download/CTA */
+.cta-box {
+  background: linear-gradient(135deg, rgba(118,185,0,0.1), rgba(79,195,247,0.1));
+  border: 1px solid var(--accent-green); border-radius: 12px;
+  padding: 2rem; margin: 2rem 0; text-align: center;
+}
+.cta-box h3 { color: var(--accent-green); margin-bottom: 0.5rem; }
+.cta-box p { color: var(--text-secondary); font-size: 0.85rem; }
+/* Expandable */
+details { margin: 1rem 0; }
+summary {
+  cursor: pointer; padding: 1rem; background: var(--bg-card);
+  border-radius: 8px; border: 1px solid var(--border); font-size: 0.85rem;
+  transition: border-color 0.3s;
+}
+summary:hover { border-color: var(--accent-green); }
+details[open] summary { border-color: var(--accent-green); border-radius: 8px 8px 0 0; }
+details .detail-content {
+  padding: 1rem; border: 1px solid var(--border); border-top: none;
+  border-radius: 0 0 8px 8px; font-size: 0.8rem; color: var(--text-secondary);
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="nav-bar">
+  <span class="logo">LOCATEANYTHING</span>
+  <a href="#objective">Objective</a>
+  <a href="#architecture">Architecture</a>
+  <a href="#datasets">Datasets</a>
+  <a href="#experiments">Experiments</a>
+  <a href="#pipeline">Pipeline</a>
+  <a href="#metrics">Metrics</a>
+  <a href="#comparison">Comparison</a>
+  <a href="#resources">Resources</a>
+  <a href="#future">Future</a>
+</nav>
+
+<!-- Hero -->
+<section class="hero">
+  <h1>Baseline Experiment Design</h1>
+  <p class="subtitle">Controlled evaluation of LocateAnything (NVIDIA) on electron microscopy segmentation benchmarks — Lucchi++ & Kasthuri++ — with Micro-SAM as domain-specific baseline</p>
+  <div class="badges">
+    <span class="badge green">LocateAnything-3B</span>
+    <span class="badge blue">Micro-SAM Baseline</span>
+    <span class="badge purple">EM Microscopy</span>
+  </div>
+  <div class="scroll-cue">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#76b900" stroke-width="2">
+      <path d="M7 13l5 5 5-5M7 6l5 5 5-5"/>
+    </svg>
+  </div>
+</section>
+
+<!-- Objective -->
+<section id="objective">
+  <div class="section-title"><span class="num">01</span> Goal & Objective</div>
+  <p class="section-desc">Establish a rigorous experimental framework to evaluate LocateAnything's zero-shot generalization to electron microscopy segmentation, identify performance gaps against domain-adapted baselines, and chart a path toward microscopy-specific fine-tuning.</p>
+
+  <div class="grid-3">
+    <div class="card">
+      <h3>Research Question</h3>
+      <p>How well does a general-purpose vision-language grounding model (trained on natural images) perform on domain-specific electron microscopy segmentation tasks without any domain adaptation?</p>
+    </div>
+    <div class="card">
+      <h3>Hypothesis</h3>
+      <p>LocateAnything will achieve moderate detection recall on microscopy images due to domain shift, but will significantly underperform Micro-SAM which was fine-tuned on bio-EM data. Natural language prompting flexibility will partially compensate for accuracy gaps.</p>
+    </div>
+    <div class="card">
+      <h3>Key Insight</h3>
+      <p>LocateAnything outputs <span class="accent-green">boxes & points</span>, not segmentation masks. The critical challenge is bridging the gap between detection-level outputs and pixel-level ground truth annotations.</p>
+    </div>
+  </div>
+
+  <!-- Objective SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 220" xmlns="http://www.w3.org/2000/svg">
+      <!-- Central goal -->
+      <rect x="350" y="20" width="200" height="60" rx="12" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="2">
+        <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
+      </rect>
+      <text x="450" y="48" text-anchor="middle" fill="#76b900" font-size="12" font-weight="700" font-family="monospace">CORE OBJECTIVE</text>
+      <text x="450" y="65" text-anchor="middle" fill="#90a4ae" font-size="9" font-family="monospace">Evaluate zero-shot generalization</text>
+
+      <!-- Three branches -->
+      <line x1="400" y1="80" x2="150" y2="130" stroke="#4fc3f7" stroke-width="1.5" stroke-dasharray="4 4">
+        <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <line x1="450" y1="80" x2="450" y2="130" stroke="#76b900" stroke-width="1.5" stroke-dasharray="4 4">
+        <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
+      </line>
+      <line x1="500" y1="80" x2="750" y2="130" stroke="#b388ff" stroke-width="1.5" stroke-dasharray="4 4">
+        <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Branch 1: Setup -->
+      <rect x="70" y="135" width="170" height="70" rx="10" fill="rgba(79,195,247,0.08)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="155" y="158" text-anchor="middle" fill="#4fc3f7" font-size="10" font-weight="700" font-family="monospace">SET UP MODEL</text>
+      <text x="155" y="175" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Load LocateAnything-3B</text>
+      <text x="155" y="188" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Configure inference modes</text>
+      <text x="155" y="201" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">fast / hybrid / slow</text>
+
+      <!-- Branch 2: Test -->
+      <rect x="365" y="135" width="170" height="70" rx="10" fill="rgba(118,185,0,0.08)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="450" y="158" text-anchor="middle" fill="#76b900" font-size="10" font-weight="700" font-family="monospace">TEST ON DATASETS</text>
+      <text x="450" y="175" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Lucchi++ (mitochondria)</text>
+      <text x="450" y="188" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Kasthuri++ (cells/synapses)</text>
+      <text x="450" y="201" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">240 test images total</text>
+
+      <!-- Branch 3: Compare -->
+      <rect x="660" y="135" width="170" height="70" rx="10" fill="rgba(179,136,255,0.08)" stroke="#b388ff" stroke-width="1.5"/>
+      <text x="745" y="158" text-anchor="middle" fill="#b388ff" font-size="10" font-weight="700" font-family="monospace">REPORT & COMPARE</text>
+      <text x="745" y="175" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">IoU / Dice / ASSD</text>
+      <text x="745" y="188" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">vs Micro-SAM baseline</text>
+      <text x="745" y="201" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">quality, speed, cost</text>
+    </svg>
+  </div>
+</section>
+
+<!-- Model Architecture -->
+<section id="architecture">
+  <div class="section-title"><span class="num">02</span> Model Architecture</div>
+  <p class="section-desc">LocateAnything uses a novel Vision-Language architecture with Parallel Box Decoding (PBD) for high-throughput visual grounding. Understanding its structure is critical to interpreting experiment results.</p>
+
+  <!-- Architecture Diagram SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 420" xmlns="http://www.w3.org/2000/svg">
+      <!-- Title -->
+      <text x="450" y="25" text-anchor="middle" fill="#e8eaf6" font-size="13" font-weight="700" font-family="monospace">LocateAnything Architecture — 3.8B Parameters</text>
+
+      <!-- Vision Encoder -->
+      <rect x="30" y="60" width="200" height="140" rx="12" fill="rgba(79,195,247,0.06)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="130" y="82" text-anchor="middle" fill="#4fc3f7" font-size="11" font-weight="700" font-family="monospace">Moon-ViT-SO-400M</text>
+      <text x="130" y="100" text-anchor="middle" fill="#546e7a" font-size="8" font-family="monospace">Vision Encoder</text>
+
+      <rect x="50" y="112" width="160" height="25" rx="4" fill="rgba(79,195,247,0.1)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="130" y="129" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Patch-14, 27 layers</text>
+      <rect x="50" y="142" width="160" height="25" rx="4" fill="rgba(79,195,247,0.1)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="130" y="159" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">1152-dim, 16 heads</text>
+      <rect x="50" y="172" width="160" height="20" rx="4" fill="rgba(79,195,247,0.1)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="130" y="186" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Native resolution</text>
+
+      <!-- Arrow ViT -> Projector -->
+      <line x1="230" y1="130" x2="290" y2="130" stroke="#4fc3f7" stroke-width="1.5" marker-end="url(#arrowBlue)">
+        <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+      <text x="260" y="122" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">1152d</text>
+
+      <!-- Projector -->
+      <rect x="295" y="105" width="110" height="50" rx="8" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="1.5"/>
+      <text x="350" y="125" text-anchor="middle" fill="#ffab40" font-size="9" font-weight="700" font-family="monospace">MLP Projector</text>
+      <text x="350" y="142" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">1152 → 2048</text>
+
+      <!-- Arrow Projector -> Decoder -->
+      <line x1="405" y1="130" x2="465" y2="130" stroke="#ffab40" stroke-width="1.5" marker-end="url(#arrowOrange)">
+        <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Decoder -->
+      <rect x="470" y="60" width="220" height="140" rx="12" fill="rgba(118,185,0,0.06)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="580" y="82" text-anchor="middle" fill="#76b900" font-size="11" font-weight="700" font-family="monospace">Qwen2.5-3B-Instruct</text>
+      <text x="580" y="100" text-anchor="middle" fill="#546e7a" font-size="8" font-family="monospace">Language Decoder</text>
+
+      <rect x="490" y="112" width="180" height="25" rx="4" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="580" y="129" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">36 layers, 2048-dim</text>
+      <rect x="490" y="142" width="180" height="25" rx="4" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="580" y="159" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">MQA: 2 KV heads</text>
+      <rect x="490" y="172" width="180" height="20" rx="4" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="580" y="186" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">RoPE θ=1M, 32K window</text>
+
+      <!-- Arrow Decoder -> Output -->
+      <line x1="580" y1="200" x2="580" y2="250" stroke="#76b900" stroke-width="1.5" marker-end="url(#arrowGreen)">
+        <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Output: Block-based -->
+      <rect x="420" y="255" width="300" height="75" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5"/>
+      <text x="570" y="275" text-anchor="middle" fill="#b388ff" font-size="10" font-weight="700" font-family="monospace">Block-Based Output (PBD)</text>
+      <rect x="435" y="285" width="80" height="22" rx="4" fill="rgba(179,136,255,0.1)" stroke="#b388ff" stroke-width="0.5"/>
+      <text x="475" y="300" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">&lt;box&gt; x1 y1 x2 y2</text>
+      <rect x="525" y="285" width="80" height="22" rx="4" fill="rgba(179,136,255,0.1)" stroke="#b388ff" stroke-width="0.5"/>
+      <text x="565" y="300" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">&lt;point&gt; x y</text>
+      <rect x="615" y="285" width="80" height="22" rx="4" fill="rgba(179,136,255,0.1)" stroke="#b388ff" stroke-width="0.5"/>
+      <text x="655" y="300" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">&lt;ref&gt; label</text>
+
+      <!-- Output flow -->
+      <line x1="570" y1="330" x2="570" y2="365" stroke="#b388ff" stroke-width="1.5" marker-end="url(#arrowPurple)">
+        <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.8s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Final Output -->
+      <rect x="420" y="370" width="300" height="40" rx="8" fill="rgba(118,185,0,0.15)" stroke="#76b900" stroke-width="2">
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
+      </rect>
+      <text x="570" y="395" text-anchor="middle" fill="#76b900" font-size="10" font-weight="700" font-family="monospace">Bounding Boxes + Points + Labels</text>
+
+      <!-- Coordinate system note -->
+      <rect x="30" y="260" width="250" height="100" rx="10" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="1"/>
+      <text x="155" y="282" text-anchor="middle" fill="#ffab40" font-size="10" font-weight="700" font-family="monospace">Coordinate System</text>
+      <text x="155" y="300" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Float [0,1] → Integer bins [0,1000]</text>
+      <text x="155" y="315" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Each bin = 1 token ID</text>
+      <text x="155" y="330" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">1,001 coordinate tokens</text>
+      <text x="155" y="348" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Vocab: 152,681 tokens total</text>
+
+      <!-- Inference modes note -->
+      <rect x="760" y="60" width="120" height="120" rx="10" fill="rgba(244,67,54,0.04)" stroke="#f44336" stroke-width="1"/>
+      <text x="820" y="80" text-anchor="middle" fill="#f44336" font-size="9" font-weight="700" font-family="monospace">Inference Modes</text>
+      <rect x="775" y="92" width="90" height="22" rx="4" fill="rgba(244,67,54,0.08)" stroke="#f44336" stroke-width="0.5"/>
+      <text x="820" y="107" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">FAST (MTP only)</text>
+      <rect x="775" y="120" width="90" height="22" rx="4" fill="rgba(244,67,54,0.08)" stroke="#f44336" stroke-width="0.5"/>
+      <text x="820" y="135" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">HYBRID (MTP+AR)</text>
+      <rect x="775" y="148" width="90" height="22" rx="4" fill="rgba(244,67,54,0.08)" stroke="#f44336" stroke-width="0.5"/>
+      <text x="820" y="163" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">SLOW (pure AR)</text>
+      <text x="820" y="176" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">← test all 3</text>
+
+      <!-- Input image placeholder -->
+      <rect x="50" y="370" width="160" height="100" rx="8" fill="rgba(79,195,247,0.06)" stroke="#4fc3f7" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="130" y="395" text-anchor="middle" fill="#4fc3f7" font-size="9" font-family="monospace">Input Image</text>
+      <text x="130" y="412" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">RGB, up to 2.5K res</text>
+      <!-- mini image icon -->
+      <rect x="100" y="425" width="60" height="35" rx="3" fill="rgba(79,195,247,0.1)"/>
+      <circle cx="118" cy="440" r="6" fill="none" stroke="#4fc3f7" stroke-width="0.8"/>
+      <path d="M108 455 L122 443 L132 450 L145 438 L155 455" fill="none" stroke="#4fc3f7" stroke-width="0.8"/>
+
+      <!-- Arrow image -> ViT -->
+      <line x1="130" y1="370" x2="130" y2="200" stroke="#4fc3f7" stroke-width="1" stroke-dasharray="3 3">
+        <animate attributeName="stroke-dashoffset" values="0;-6" dur="1s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Text prompt input -->
+      <rect x="250" y="370" width="160" height="40" rx="8" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1" stroke-dasharray="4 3"/>
+      <text x="330" y="387" text-anchor="middle" fill="#b388ff" font-size="8" font-weight="700" font-family="monospace">Text Prompt</text>
+      <text x="330" y="402" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">"mitochondria", "cells"</text>
+
+      <!-- Arrow text -> Decoder -->
+      <line x1="410" y1="390" x2="470" y2="200" stroke="#b388ff" stroke-width="1" stroke-dasharray="3 3">
+        <animate attributeName="stroke-dashoffset" values="0;-6" dur="1s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Arrow definitions -->
+      <defs>
+        <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#4fc3f7"/></marker>
+        <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#76b900"/></marker>
+        <marker id="arrowOrange" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#ffab40"/></marker>
+        <marker id="arrowPurple" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#b388ff"/></marker>
+      </defs>
+    </svg>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Parallel Box Decoding (PBD)</h3>
+      <p>Unlike standard autoregressive models that emit one coordinate at a time, PBD decodes all 4 bounding-box coordinates as a single 6-token atomic block — achieving <span class="accent-green">12.7 boxes/sec</span> on H100 (2.5× faster than AR).</p>
+    </div>
+    <div class="card">
+      <h3>⚠️ Architecture-Segmentation Mismatch</h3>
+      <p>LocateAnything is a <span class="accent-orange">detection/grounding</span> model. It outputs bounding boxes and points — <strong>not pixel-level masks</strong>. For EM segmentation evaluation, boxes must be compared against mask-derived boxes, or fed as prompts to a mask generator (Micro-SAM).</p>
+    </div>
+  </div>
+</section>
+
+<!-- Datasets -->
+<section id="datasets">
+  <div class="section-title"><span class="num">03</span> Benchmark Datasets</div>
+  <p class="section-desc">Two standard electron microscopy benchmarks for evaluating subcellular/organelle segmentation in connectomics research.</p>
+
+  <!-- Dataset Comparison SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 340" xmlns="http://www.w3.org/2000/svg">
+      <!-- Lucchi++ -->
+      <rect x="50" y="20" width="380" height="300" rx="12" fill="rgba(118,185,0,0.04)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="240" y="50" text-anchor="middle" fill="#76b900" font-size="14" font-weight="700" font-family="monospace">Lucchi++</text>
+      <text x="240" y="68" text-anchor="middle" fill="#546e7a" font-size="9" font-family="monospace">Mitochondria Segmentation (EPFL)</text>
+
+      <!-- Lucchi micrography placeholder -->
+      <rect x="80" y="85" width="150" height="115" rx="6" fill="rgba(118,185,0,0.08)" stroke="#76b900" stroke-width="0.8"/>
+      <text x="155" y="102" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Train_In / Test_In</text>
+      <!-- Simulated mitochondria shapes -->
+      <ellipse cx="120" cy="145" rx="18" ry="12" fill="none" stroke="#76b900" stroke-width="1.5" opacity="0.6">
+        <animate attributeName="rx" values="18;20;18" dur="3s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="170" cy="130" rx="22" ry="10" fill="none" stroke="#76b900" stroke-width="1.5" opacity="0.6">
+        <animate attributeName="ry" values="10;12;10" dur="2.5s" repeatCount="indefinite"/>
+      </ellipse>
+      <ellipse cx="145" cy="170" rx="15" ry="9" fill="none" stroke="#76b900" stroke-width="1.5" opacity="0.6"/>
+      <ellipse cx="200" cy="160" rx="20" ry="14" fill="none" stroke="#76b900" stroke-width="1.5" opacity="0.6"/>
+      <ellipse cx="110" cy="175" rx="12" ry="8" fill="none" stroke="#76b900" stroke-width="1.5" opacity="0.4"/>
+      <text x="155" y="195" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">1024 × 768, Grayscale</text>
+
+      <!-- Lucchi mask -->
+      <rect x="250" y="85" width="150" height="115" rx="6" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="0.8"/>
+      <text x="325" y="102" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Train_Out / Test_Out</text>
+      <ellipse cx="290" cy="145" rx="18" ry="12" fill="rgba(255,173,64,0.3)" stroke="#ffab40" stroke-width="1.5" opacity="0.8"/>
+      <ellipse cx="340" cy="130" rx="22" ry="10" fill="rgba(255,173,64,0.3)" stroke="#ffab40" stroke-width="1.5" opacity="0.8"/>
+      <ellipse cx="315" cy="170" rx="15" ry="9" fill="rgba(255,173,64,0.3)" stroke="#ffab40" stroke-width="1.5" opacity="0.8"/>
+      <ellipse cx="370" cy="160" rx="20" ry="14" fill="rgba(255,173,64,0.3)" stroke="#ffab40" stroke-width="1.5" opacity="0.8"/>
+      <ellipse cx="280" cy="175" rx="12" ry="8" fill="rgba(255,173,64,0.3)" stroke="#ffab40" stroke-width="1.5" opacity="0.6"/>
+      <text x="325" y="195" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Binary masks (0/255)</text>
+
+      <!-- Lucchi stats -->
+      <line x1="80" y1="215" x2="400" y2="215" stroke="#263238" stroke-width="1"/>
+      <rect x="80" y="228" width="100" height="35" rx="4" fill="rgba(118,185,0,0.05)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="130" y="243" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">165</text>
+      <text x="130" y="255" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Train Images</text>
+      <rect x="195" y="228" width="100" height="35" rx="4" fill="rgba(118,185,0,0.05)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="245" y="243" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">165</text>
+      <text x="245" y="255" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Test Images</text>
+      <rect x="310" y="228" width="100" height="35" rx="4" fill="rgba(118,185,0,0.05)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="360" y="243" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">~112 MB</text>
+      <text x="360" y="255" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Total Size</text>
+
+      <!-- Lucchi details -->
+      <text x="90" y="285" fill="#90a4ae" font-size="7.5" font-family="monospace">&#x2022; Modality: Serial-section FIB-SEM</text>
+      <text x="90" y="300" fill="#90a4ae" font-size="7.5" font-family="monospace">&#x2022; Target: Mitochondria membranes</text>
+      <text x="90" y="315" fill="#90a4ae" font-size="7.5" font-family="monospace">&#x2022; Origin: Lucchi et al. 2011/2012</text>
+
+      <!-- Kasthuri++ -->
+      <rect x="470" y="20" width="380" height="300" rx="12" fill="rgba(79,195,247,0.04)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="660" y="50" text-anchor="middle" fill="#4fc3f7" font-size="14" font-weight="700" font-family="monospace">Kasthuri++</text>
+      <text x="660" y="68" text-anchor="middle" fill="#546e7a" font-size="9" font-family="monospace">Cell/Synapse Segmentation (Harvard/Allen)</text>
+
+      <!-- Kasthuri micrography placeholder -->
+      <rect x="500" y="85" width="150" height="115" rx="6" fill="rgba(79,195,247,0.08)" stroke="#4fc3f7" stroke-width="0.8"/>
+      <text x="575" y="102" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Train_In / Test_In</text>
+      <!-- Simulated neural structures -->
+      <circle cx="545" cy="140" r="22" fill="none" stroke="#4fc3f7" stroke-width="1.5" opacity="0.5">
+        <animate attributeName="r" values="22;24;22" dur="4s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="610" cy="145" r="25" fill="none" stroke="#4fc3f7" stroke-width="1.5" opacity="0.5"/>
+      <circle cx="580" cy="170" r="16" fill="none" stroke="#4fc3f7" stroke-width="1.5" opacity="0.4"/>
+      <line x1="545" y1="140" x2="610" y2="145" stroke="#4fc3f7" stroke-width="0.8" opacity="0.4"/>
+      <line x1="545" y1="140" x2="580" y2="170" stroke="#4fc3f7" stroke-width="0.8" opacity="0.4"/>
+      <line x1="610" y1="145" x2="580" y2="170" stroke="#4fc3f7" stroke-width="0.8" opacity="0.4"/>
+      <text x="575" y="195" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">1334 × 1553, Grayscale</text>
+
+      <!-- Kasthuri mask -->
+      <rect x="670" y="85" width="150" height="115" rx="6" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="0.8"/>
+      <text x="745" y="102" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Train_Out / Test_Out</text>
+      <circle cx="715" cy="140" r="22" fill="rgba(179,136,255,0.25)" stroke="#b388ff" stroke-width="1.5" opacity="0.8"/>
+      <circle cx="780" cy="145" r="25" fill="rgba(179,136,255,0.25)" stroke="#b388ff" stroke-width="1.5" opacity="0.8"/>
+      <circle cx="750" cy="170" r="16" fill="rgba(179,136,255,0.25)" stroke="#b388ff" stroke-width="1.5" opacity="0.6"/>
+      <line x1="715" y1="140" x2="780" y2="145" stroke="#b388ff" stroke-width="0.8" opacity="0.5"/>
+      <line x1="715" y1="140" x2="750" y2="170" stroke="#b388ff" stroke-width="0.8" opacity="0.5"/>
+      <text x="745" y="195" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Labeled masks (0/2/255)</text>
+
+      <!-- Kasthuri stats -->
+      <line x1="500" y1="215" x2="820" y2="215" stroke="#263238" stroke-width="1"/>
+      <rect x="500" y="228" width="100" height="35" rx="4" fill="rgba(79,195,247,0.05)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="550" y="243" text-anchor="middle" fill="#4fc3f7" font-size="9" font-weight="700" font-family="monospace">85</text>
+      <text x="550" y="255" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Train Images</text>
+      <rect x="615" y="228" width="100" height="35" rx="4" fill="rgba(79,195,247,0.05)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="665" y="243" text-anchor="middle" fill="#4fc3f7" font-size="9" font-weight="700" font-family="monospace">75</text>
+      <text x="665" y="255" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Test Images</text>
+      <rect x="730" y="228" width="100" height="35" rx="4" fill="rgba(79,195,247,0.05)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="780" y="243" text-anchor="middle" fill="#4fc3f7" font-size="9" font-weight="700" font-family="monospace">~95 MB</text>
+      <text x="780" y="255" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Total Size</text>
+
+      <!-- Kasthuri details -->
+      <text x="510" y="285" fill="#90a4ae" font-size="7.5" font-family="monospace">&#x2022; Modality: Volume EM (mouse/rat brain)</text>
+      <text x="510" y="300" fill="#90a4ae" font-size="7.5" font-family="monospace">&#x2022; Target: Cells, synapses, neurite tracing</text>
+      <text x="510" y="315" fill="#90a4ae" font-size="7.5" font-family="monospace">&#x2022; Origin: Kasthuri et al. / Allen Institute</text>
+    </svg>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Lucchi++ — Properties</h3>
+      <ul>
+        <li><span class="accent-green">1024 × 768</span> px, 8-bit grayscale</li>
+        <li>Binary masks: 0 (background) / 255 (mitochondria)</li>
+        <li>165 train + 165 test = <span class="accent-green">330 images</span></li>
+        <li>Each image contains multiple mitochondria instances</li>
+        <li>Serial-section FIB-SEM of neural tissue</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Kasthuri++ — Properties</h3>
+      <ul>
+        <li><span class="accent-blue">1334 × 1553</span> px, 8-bit grayscale</li>
+        <li>Labeled masks: 0 (bg) / 2 (boundaries) / 255 (cells)</li>
+        <li>85 train + 75 test = <span class="accent-blue">160 images</span></li>
+        <li>Larger field-of-view, more complex structures</li>
+        <li>Volume EM of mouse/rat brain cortex</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Experiments -->
+<section id="experiments">
+  <div class="section-title"><span class="num">04</span> Experiment Matrix</div>
+  <p class="section-desc">Four controlled experiments designed to isolate different dimensions of performance: detection accuracy, box-to-mask conversion, resolution sensitivity, and vocabulary robustness.</p>
+
+  <!-- Experiment Flow SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="20" text-anchor="middle" fill="#e8eaf6" font-size="12" font-weight="700" font-family="monospace">End-to-End Experiment Pipeline</text>
+
+      <!-- Input images -->
+      <rect x="30" y="50" width="120" height="50" rx="8" fill="rgba(118,185,0,0.08)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="90" y="70" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">Lucchi++</text>
+      <text x="90" y="85" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">165 test imgs</text>
+      <rect x="160" y="50" width="120" height="50" rx="8" fill="rgba(79,195,247,0.08)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="220" y="70" text-anchor="middle" fill="#4fc3f7" font-size="9" font-weight="700" font-family="monospace">Kasthuri++</text>
+      <text x="220" y="85" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">75 test imgs</text>
+
+      <!-- Arrow to prompt engineering -->
+      <line x1="150" y1="100" x2="150" y2="125" stroke="#76b900" stroke-width="1.2" marker-end="url(#arrowGreen)"/>
+      <line x1="220" y1="100" x2="220" y2="125" stroke="#4fc3f7" stroke-width="1.2" marker-end="url(#arrowBlue)"/>
+
+      <!-- Prompt Engineering -->
+      <rect x="60" y="130" width="220" height="65" rx="10" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="1.5"/>
+      <text x="170" y="150" text-anchor="middle" fill="#ffab40" font-size="10" font-weight="700" font-family="monospace">Prompt Engineering</text>
+      <text x="170" y="166" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">&#x2022; "mitochondria" &#x2022; "cell"</text>
+      <text x="170" y="178" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">&#x2022; "synapse" &#x2022; "neurite"</text>
+      <text x="170" y="190" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">+ descriptive variants</text>
+
+      <!-- Arrow to models -->
+      <line x1="170" y1="195" x2="170" y2="220" stroke="#ffab40" stroke-width="1.2" marker-end="url(#arrowOrange)"/>
+
+      <!-- Branch: LocateAnything -->
+      <rect x="30" y="225" width="180" height="75" rx="10" fill="rgba(118,185,0,0.06)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="120" y="247" text-anchor="middle" fill="#76b900" font-size="10" font-weight="700" font-family="monospace">LocateAnything</text>
+      <text x="120" y="262" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">3B params, BF16</text>
+      <text x="120" y="275" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Modes: fast/hybrid/slow</text>
+      <text x="120" y="290" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Output: boxes + points</text>
+
+      <!-- Branch: Micro-SAM -->
+      <rect x="230" y="225" width="180" height="75" rx="10" fill="rgba(79,195,247,0.06)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="320" y="247" text-anchor="middle" fill="#4fc3f7" font-size="10" font-weight="700" font-family="monospace">Micro-SAM</text>
+      <text x="320" y="262" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">SAM fine-tuned on EM</text>
+      <text x="320" y="275" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Prompts: GT centroids</text>
+      <text x="320" y="290" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Output: pixel masks</text>
+
+      <!-- Exp 1 box -->
+      <rect x="440" y="50" width="430" height="65" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5" class="flow-step"/>
+      <text x="655" y="72" text-anchor="middle" fill="#b388ff" font-size="11" font-weight="700" font-family="monospace">EXP 1: Detection-as-Segmentation</text>
+      <text x="655" y="88" text-anchor="middle" fill="#90a4ae" font-size="7.5" font-family="monospace">GT masks → GT boxes ↔ predicted boxes</text>
+      <text x="655" y="102" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Metrics: IoU@{0.5,0.75}, Detection Recall, FP/image</text>
+
+      <!-- Exp 2 box -->
+      <rect x="440" y="125" width="430" height="65" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5" class="flow-step"/>
+      <text x="655" y="147" text-anchor="middle" fill="#b388ff" font-size="11" font-weight="700" font-family="monospace">EXP 2: Point → Mask Pipeline</text>
+      <text x="655" y="163" text-anchor="middle" fill="#90a4ae" font-size="7.5" font-family="monospace">LocateAnything points → Micro-SAM prompts → masks</text>
+      <text x="655" y="177" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Metrics: Dice, IoU, ASSD, throughput</text>
+
+      <!-- Exp 3 box -->
+      <rect x="440" y="200" width="430" height="65" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5" class="flow-step"/>
+      <text x="655" y="222" text-anchor="middle" fill="#b388ff" font-size="11" font-weight="700" font-family="monospace">EXP 3: Resolution Sensitivity</text>
+      <text x="655" y="238" text-anchor="middle" fill="#90a4ae" font-size="7.5" font-family="monospace">Native / 1000px / 512px short-side</text>
+      <text x="655" y="252" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Measure degradation vs input resolution</text>
+
+      <!-- Exp 4 box -->
+      <rect x="440" y="275" width="430" height="65" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5" class="flow-step"/>
+      <text x="655" y="297" text-anchor="middle" fill="#b388ff" font-size="11" font-weight="700" font-family="monospace">EXP 4: Vocabulary Robustness</text>
+      <text x="655" y="313" text-anchor="middle" fill="#90a4ae" font-size="7.5" font-family="monospace">Synonym sets, descriptive vs single-word</text>
+      <text x="655" y="327" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Measure recall variance across prompts</text>
+
+      <!-- Arrows from experiments to evaluation -->
+      <line x1="655" y1="340" x2="655" y2="370" stroke="#b388ff" stroke-width="1.2" stroke-dasharray="4 4">
+        <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
+      </line>
+
+      <!-- Evaluation Engine -->
+      <rect x="440" y="375" width="430" height="80" rx="12" fill="rgba(118,185,0,0.06)" stroke="#76b900" stroke-width="2"/>
+      <text x="655" y="397" text-anchor="middle" fill="#76b900" font-size="12" font-weight="700" font-family="monospace">Unified Evaluation Engine</text>
+      <text x="655" y="415" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">IoU | Dice | ASSD | HD95 | F1 | Recall | Precision | Latency</text>
+
+      <!-- Metrics mini boxes -->
+      <rect x="460" y="422" width="75" height="25" rx="4" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="497" y="438" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Pixel-level</text>
+      <rect x="545" y="422" width="75" height="25" rx="4" fill="rgba(79,195,247,0.1)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="582" y="438" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Object-level</text>
+      <rect x="630" y="422" width="75" height="25" rx="4" fill="rgba(179,136,255,0.1)" stroke="#b388ff" stroke-width="0.5"/>
+      <text x="667" y="438" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Boundary</text>
+      <rect x="715" y="422" width="75" height="25" rx="4" fill="rgba(255,173,64,0.1)" stroke="#ffab40" stroke-width="0.5"/>
+      <text x="752" y="438" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Efficiency</text>
+
+      <!-- Arrow to reports -->
+      <line x1="655" y1="455" x2="655" y2="485" stroke="#76b900" stroke-width="1.2" marker-end="url(#arrowGreen)"/>
+
+      <!-- Reports -->
+      <rect x="480" y="490" width="350" height="28" rx="8" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="1.5">
+        <animate attributeName="opacity" values="0.7;1;0.7" dur="2s" repeatCount="indefinite"/>
+      </rect>
+      <text x="655" y="509" text-anchor="middle" fill="#76b900" font-size="10" font-weight="700" font-family="monospace">docs/experiments/ → Results, Figures, Comparison Tables</text>
+
+      <defs>
+        <marker id="arrowBlue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#4fc3f7"/></marker>
+      </defs>
+    </svg>
+  </div>
+
+  <!-- Exp 1 Detail -->
+  <details>
+    <summary>Experiment 1 — Detection-as-Segmentation Baseline (click to expand)</summary>
+    <div class="detail-content">
+      <p><strong>Objective:</strong> Measure LocateAnything's zero-shot detection accuracy on EM images by converting the problem from mask prediction to box prediction.</p><br>
+      <p><strong>Procedure:</strong></p>
+      <ul>
+        <li>Extract ground-truth bounding boxes from segmentation masks (one box per connected component)</li>
+        <li>Run LocateAnything with multiple prompt strategies across both datasets</li>
+        <li>Match predicted boxes to GT boxes using Hungarian matching at IoU@{0.5, 0.75}</li>
+        <li>Compute detection-level precision, recall, F1</li>
+      </ul>
+      <br>
+      <p><strong>Prompts to test:</strong></p>
+      <div class="code-block">
+<span class="comment"># Lucchi++ prompts (mitochondria)</span>
+<span class="string">"mitochondria"</span>
+<span class="string">"detect all mitochondria in this electron microscopy image"</span>
+<span class="string">"mitochondrion, organelle, membrane-bound structure"</span>
+
+<span class="comment"># Kasthuri++ prompts (cells/synapses)</span>
+<span class="string">"cell"</span>
+<span class="string">"cell membrane boundary"</span>
+<span class="string">"synapse"</span>
+<span class="string">"neuron"</span>
+      </div>
+    </div>
+  </details>
+
+  <!-- Exp 2 Detail -->
+  <details>
+    <summary>Experiment 2 — Point-to-Mask Pipeline (click to expand)</summary>
+    <div class="detail-content">
+      <p><strong>Objective:</strong> Evaluate a two-stage pipeline where LocateAnything generates points that prompt Micro-SAM for mask generation.</p><br>
+      <p><strong>Procedure:</strong></p>
+      <ul>
+        <li>Run LocateAnything in point-predicting mode to get center points of detected structures</li>
+        <li>Feed predicted points as prompts to Micro-SAM</li>
+        <li>Compare masks generated from: (a) LocateAnything points, (b) GT centroids [upper bound], (c) random GT-inside points [lower bound]</li>
+        <li>Measure end-to-end latency and mask quality</li>
+      </ul>
+    </div>
+  </details>
+
+  <!-- Exp 3 Detail -->
+  <details>
+    <summary>Experiment 3 — Resolution Sensitivity (click to expand)</summary>
+    <div class="detail-content">
+      <p><strong>Objective:</strong> Quantify how LocateAnything's performance varies with input image resolution — critical for EM images with unusual aspect ratios.</p><br>
+      <p><strong>Resolution levels:</strong></p>
+      <ul>
+        <li><strong>Native:</strong> 1024×768 (Lucchi) / 1334×1553 (Kasthuri)</li>
+        <li><strong>1000px:</strong> Short-side resized to 1000px (LocateAnything default)</li>
+        <li><strong>512px:</strong> Short-side resized to 512px (typical SAM input)</li>
+        <li><strong>2000px:</strong> Upscaled to test super-native handling</li>
+      </ul>
+      <br>
+      <p><strong>Measurement:</strong> IoU and detection recall at each resolution, holding all other parameters constant.</p>
+    </div>
+  </details>
+
+  <!-- Exp 4 Detail -->
+  <details>
+    <summary>Experiment 4 — Vocabulary Robustness (click to expand)</summary>
+    <div class="detail-content">
+      <p><strong>Objective:</strong> Test how domain-specific biological terminology affects detection — determines whether users need prompt engineering expertise.</p><br>
+      <p><strong>Synonym sets to evaluate:</strong></p>
+      <table style="font-size:0.75rem;">
+        <tr><th>Concept</th><th>Variants to test</th></tr>
+        <tr><td>Mitochondria</td><td>"mitochondria", "mitochondrion", "Mito", "cellular organelle", "double-membrane organelle"</td></tr>
+        <tr><td>Cell</td><td>"cell", "cell body", "soma", "neural cell", "neuronal cell body"</td></tr>
+        <tr><td>Synapse</td><td>"synapse", "synaptic junction", "neuronal connection", "chemical synapse"</td></tr>
+        <tr><td>Membrane</td><td>"membrane", "cell membrane", "plasma membrane", "lipid bilayer"</td></tr>
+      </table>
+    </div>
+  </details>
+</section>
+
+<!-- Pipeline -->
+<section id="pipeline">
+  <div class="section-title"><span class="num">05</span> Technical Pipeline</div>
+  <p class="section-desc">Implementation blueprint for the evaluation infrastructure — from data loading through metric computation and visualization.</p>
+
+  <!-- Pipeline Code -->
+  <div class="code-block">
+<span class="comment">#!/usr/bin/env python3</span>
+<span class="comment"># experiments/run_baseline.py</span>
+
+<span class="keyword">import</span> numpy <span class="keyword">as</span> np
+<span class="keyword">from</span> PIL <span class="keyword">import</span> Image
+<span class="keyword">from</span> transformers <span class="keyword">import</span> AutoTokenizer, AutoProcessor, AutoModel
+<span class="keyword">import</span> torch
+
+<span class="keyword">class</span> <span class="func">BaselineExperiment</span>:
+    <span class="string">"""Run LocateAnything on EM segmentation benchmarks."""</span>
+
+    <span class="keyword">def</span> <span class="func">__init__</span>(self, model_id=<span class="string">"nvidia/LocateAnything-3B"</span>):
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=<span class="keyword">True</span>)
+        self.processor = AutoProcessor.from_pretrained(model_id, trust_remote_code=<span class="keyword">True</span>)
+        self.model = AutoModel.from_pretrained(
+            model_id, torch_dtype=torch.bfloat16,
+            trust_remote_code=<span class="keyword">True</span>
+        ).cuda().eval()
+
+    <span class="keyword">def</span> <span class="func">run_inference</span>(self, image_path, prompt, mode=<span class="string">"hybrid"</span>):
+        <span class="comment"># Load and preprocess EM image</span>
+        img = Image.open(image_path).convert(<span class="string">"RGB"</span>)
+        inputs = self.processor(images=img, text=prompt, return_tensors=<span class="string">"pt"</span>).cuda()
+
+        <span class="comment"># Generate with specified inference mode</span>
+        <span class="keyword">with</span> torch.no_grad():
+            output = self.model.generate(**inputs, inference_mode=mode)
+
+        <span class="comment"># Parse &lt;box&gt; and &lt;point&gt; tokens</span>
+        <span class="keyword">return</span> self.parse_output(output)
+
+    <span class="keyword">def</span> <span class="func">run_dataset</span>(self, dataset_dir, prompts, mode=<span class="string">"hybrid"</span>):
+        <span class="comment"># Iterate all test images, run all prompts</span>
+        results = {}
+        <span class="keyword">for</span> img_path <span class="keyword">in</span> sorted(Path(dataset_dir).glob(<span class="string">"*.png"</span>)):
+            <span class="keyword">for</span> prompt <span class="keyword">in</span> prompts:
+                boxes, points = self.run_inference(img_path, prompt, mode)
+                results[(img_path.name, prompt)] = {<span class="string">"boxes"</span>: boxes, <span class="string">"points"</span>: points}
+        <span class="keyword">return</span> results
+  </div>
+
+  <!-- Pipeline steps as cards -->
+  <div class="grid-3" style="margin-top: 2rem;">
+    <div class="card">
+      <h3>Step 1: Data Prep</h3>
+      <ul>
+        <li>Load Test_In images (grayscale → RGB)</li>
+        <li>Load Test_Out masks</li>
+        <li>Extract GT boxes from masks (connected components)</li>
+        <li>Compute GT centroids for point prompts</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Step 2: Inference</h3>
+      <ul>
+        <li>Load model (BF16, CUDA)</li>
+        <li>For each image × prompt × mode combo</li>
+        <li>Capture boxes, points, latency, VRAM</li>
+        <li>Store raw outputs as JSON</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Step 3: Evaluate</h3>
+      <ul>
+        <li>Match predictions to GT (Hungarian)</li>
+        <li>Compute IoU, Dice, ASSD, HD95</li>
+        <li>Aggregate per-image → per-dataset</li>
+        <li>Generate plots + tables</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- Metrics -->
+<section id="metrics">
+  <div class="section-title"><span class="num">06</span> Evaluation Metrics</div>
+  <p class="section-desc">A comprehensive multi-level evaluation spanning pixel accuracy, object detection, boundary quality, and computational efficiency.</p>
+
+  <!-- Metrics Visualization SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 380" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="25" text-anchor="middle" fill="#e8eaf6" font-size="12" font-weight="700" font-family="monospace">Four-Tier Metric Hierarchy</text>
+
+      <!-- Tier 1: Pixel-level -->
+      <rect x="30" y="50" width="200" height="140" rx="10" fill="rgba(118,185,0,0.06)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="130" y="72" text-anchor="middle" fill="#76b900" font-size="10" font-weight="700" font-family="monospace">Tier 1: Pixel-Level</text>
+      <text x="55" y="95" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; IoU (Jaccard Index)</text>
+      <text x="55" y="112" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Dice Coefficient (F1)</text>
+      <text x="55" y="129" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Pixel Accuracy</text>
+
+      <!-- IoU formula -->
+      <rect x="45" y="142" width="170" height="38" rx="4" fill="rgba(118,185,0,0.06)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="130" y="158" text-anchor="middle" fill="#76b900" font-size="8" font-family="monospace">IoU = |A ∩ B| / |A ∪ B|</text>
+      <text x="130" y="172" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Threshold: IoU &gt; 0.5 = match</text>
+
+      <!-- Tier 2: Object-level -->
+      <rect x="240" y="50" width="200" height="140" rx="10" fill="rgba(79,195,247,0.06)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="340" y="72" text-anchor="middle" fill="#4fc3f7" font-size="10" font-weight="700" font-family="monospace">Tier 2: Object-Level</text>
+      <text x="265" y="95" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; AP@0.5, AP@0.75</text>
+      <text x="265" y="112" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; AP@0.5:0.95 (mAP)</text>
+      <text x="265" y="129" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Detection F1 Score</text>
+
+      <!-- Detection formula -->
+      <rect x="255" y="142" width="170" height="38" rx="4" fill="rgba(79,195,247,0.06)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <text x="340" y="158" text-anchor="middle" fill="#4fc3f7" font-size="8" font-family="monospace">F1 = 2·P·R / (P + R)</text>
+      <text x="340" y="172" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Hungarian matching @ IoU=0.5</text>
+
+      <!-- Tier 3: Boundary -->
+      <rect x="450" y="50" width="200" height="140" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5"/>
+      <text x="550" y="72" text-anchor="middle" fill="#b388ff" font-size="10" font-weight="700" font-family="monospace">Tier 3: Boundary</text>
+      <text x="475" y="95" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; ASSD (Avg Sym Surface Dist)</text>
+      <text x="475" y="112" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Hausdorff Distance (HD95)</text>
+      <text x="475" y="129" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Boundary F-score</text>
+
+      <!-- ASSD description -->
+      <rect x="465" y="142" width="170" height="38" rx="4" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="0.5"/>
+      <text x="550" y="158" text-anchor="middle" fill="#b388ff" font-size="8" font-family="monospace">Mean surface-to-surface</text>
+      <text x="550" y="172" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">distance (lower = better)</text>
+
+      <!-- Tier 4: Efficiency -->
+      <rect x="660" y="50" width="210" height="140" rx="10" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="1.5"/>
+      <text x="765" y="72" text-anchor="middle" fill="#ffab40" font-size="10" font-weight="700" font-family="monospace">Tier 4: Efficiency</text>
+      <text x="685" y="95" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Inference latency (sec/img)</text>
+      <text x="685" y="112" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Peak VRAM usage (GB)</text>
+      <text x="685" y="129" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Throughput (img/sec)</text>
+
+      <!-- Efficiency note -->
+      <rect x="675" y="142" width="180" height="38" rx="4" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="0.5"/>
+      <text x="765" y="158" text-anchor="middle" fill="#ffab40" font-size="8" font-family="monospace">Measured with torch.cuda</text>
+      <text x="765" y="172" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">.max_memory_allocated()</text>
+
+      <!-- Connecting arrows -->
+      <line x1="230" y1="120" x2="240" y2="120" stroke="#546e7a" stroke-width="1"/>
+      <line x1="440" y1="120" x2="450" y2="120" stroke="#546e7a" stroke-width="1"/>
+      <line x1="650" y1="120" x2="660" y2="120" stroke="#546e7a" stroke-width="1"/>
+
+      <!-- Biological metrics section -->
+      <rect x="30" y="220" width="840" height="80" rx="10" fill="rgba(244,67,54,0.04)" stroke="#f44336" stroke-width="1"/>
+      <text x="450" y="243" text-anchor="middle" fill="#f44336" font-size="10" font-weight="700" font-family="monospace">Biology-Specific Metrics (connectomics evaluation)</text>
+      <text x="60" y="265" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Variation of Information (VI) — split/merge error decomposition</text>
+      <text x="60" y="280" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; Adapted Rand Error (ARE) — neuron segmentation standard</text>
+      <text x="60" y="295" fill="#90a4ae" font-size="8" font-family="monospace">&#x2022; CREMI Score — synapse/neurite reconstruction quality</text>
+
+      <!-- Expected performance note -->
+      <rect x="30" y="320" width="840" height="50" rx="8" fill="rgba(118,185,0,0.04)" stroke="#76b900" stroke-width="0.8" stroke-dasharray="4 3"/>
+      <text x="450" y="342" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">Expected Baseline Performance (literature)</text>
+      <text x="450" y="358" text-anchor="middle" fill="#546e7a" font-size="7.5" font-family="monospace">nnU-Net on Lucchi: Dice ~0.85-0.90 | U-Net on Kasthuri: Dice ~0.80-0.88 | Micro-SAM (zero-shot): Dice ~0.60-0.75</text>
+    </svg>
+  </div>
+
+  <!-- Metric Priority Grid -->
+  <div class="table-wrap" style="margin-top: 2rem;">
+    <table>
+      <thead>
+        <tr><th>Metric</th><th>Type</th><th>Range</th><th>Primary Use</th><th>Priority</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>IoU@0.5</td><td>Pixel overlap</td><td>[0, 1]</td><td>Box-to-box matching</td><td class="accent-green">HIGH</td></tr>
+        <tr><td>IoU@0.75</td><td>Pixel overlap</td><td>[0, 1]</td><td>Strict localization</td><td class="accent-green">HIGH</td></tr>
+        <tr><td>Dice Coefficient</td><td>Pixel overlap</td><td>[0, 1]</td><td>Mask quality</td><td class="accent-green">HIGH</td></tr>
+        <tr><td>ASSD (μm)</td><td>Distance</td><td>[0, ∞)</td><td>Boundary accuracy</td><td class="accent-blue">MED</td></tr>
+        <tr><td>HD95 (μm)</td><td>Distance</td><td>[0, ∞)</td><td>Worst-case boundary</td><td class="accent-blue">MED</td></tr>
+        <tr><td>Detection F1</td><td>Object-level</td><td>[0, 1]</td><td>Complete detection</td><td class="accent-green">HIGH</td></tr>
+        <tr><td>Latency (sec)</td><td>Efficiency</td><td>[0, ∞)</td><td>Practical usability</td><td class="accent-orange">MED</td></tr>
+        <tr><td>Peak VRAM (GB)</td><td>Efficiency</td><td>[0, ∞)</td><td>Hardware requirements</td><td class="accent-orange">MED</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Comparison -->
+<section id="comparison">
+  <div class="section-title"><span class="num">07</span> Model Comparison Framework</div>
+  <p class="section-desc">Structured multi-dimensional comparison between LocateAnything and Micro-SAM across accuracy, flexibility, and efficiency axes.</p>
+
+  <!-- Comparison SVG Radar-style -->
+  <div class="svg-container">
+    <svg viewBox="0 0 700 420" xmlns="http://www.w3.org/2000/svg">
+      <text x="350" y="25" text-anchor="middle" fill="#e8eaf6" font-size="12" font-weight="700" font-family="monospace">Performance Profile Comparison</text>
+
+      <!-- Radar chart background -->
+      <g transform="translate(250, 220)">
+        <!-- Grid circles -->
+        <circle cx="0" cy="0" r="120" fill="none" stroke="#263238" stroke-width="1"/>
+        <circle cx="0" cy="0" r="90" fill="none" stroke="#1a2332" stroke-width="0.8"/>
+        <circle cx="0" cy="0" r="60" fill="none" stroke="#1a2332" stroke-width="0.8"/>
+        <circle cx="0" cy="0" r="30" fill="none" stroke="#1a2332" stroke-width="0.8"/>
+        <!-- Axes -->
+        <line x1="0" y1="-120" x2="0" y2="120" stroke="#263238" stroke-width="0.5"/>
+        <line x1="-120" y1="0" x2="120" y2="0" stroke="#263238" stroke-width="0.5"/>
+        <line x1="-85" y1="-85" x2="85" y2="85" stroke="#263238" stroke-width="0.5"/>
+        <line x1="85" y1="-85" x2="-85" y2="85" stroke="#263238" stroke-width="0.5"/>
+        <line x1="-85" y1="85" x2="85" y2="-85" stroke="#263238" stroke-width="0.5"/>
+        <line x1="85" y1="85" x2="-85" y2="-85" stroke="#263238" stroke-width="0.5"/>
+
+        <!-- Labels -->
+        <text x="0" y="-135" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">EM Accuracy</text>
+        <text x="135" y="4" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Speed</text>
+        <text x="0" y="142" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Flexibility</text>
+        <text x="-135" y="4" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Zero-Shot</text>
+
+        <!-- LocateAnything (green) — estimated -->
+        <polygon points="0,-45 78,-18 0,110 -78,-18"
+                 fill="rgba(118,185,0,0.15)" stroke="#76b900" stroke-width="2">
+          <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite"/>
+        </polygon>
+
+        <!-- Micro-SAM (blue) — estimated -->
+        <polygon points="0,-95 35,-10 45,80 -55,50"
+                 fill="rgba(79,195,247,0.15)" stroke="#4fc3f7" stroke-width="2">
+          <animate attributeName="opacity" values="0.7;1;0.7" dur="3s" repeatCount="indefinite" begin="1.5s"/>
+        </polygon>
+
+        <!-- Data points for LocateAnything -->
+        <circle cx="0" cy="-45" r="3" fill="#76b900">
+          <animate attributeName="r" values="3;5;3" dur="2s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="78" cy="-18" r="3" fill="#76b900"/>
+        <circle cx="0" cy="110" r="3" fill="#76b900"/>
+        <circle cx="-78" cy="-18" r="3" fill="#76b900"/>
+
+        <!-- Data points for Micro-SAM -->
+        <circle cx="0" cy="-95" r="3" fill="#4fc3f7"/>
+        <circle cx="35" cy="-10" r="3" fill="#4fc3f7"/>
+        <circle cx="45" cy="80" r="3" fill="#4fc3f7"/>
+        <circle cx="-55" cy="50" r="3" fill="#4fc3f7"/>
+      </g>
+
+      <!-- Legend -->
+      <rect x="510" y="80" width="170" height="30" rx="6" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="1"/>
+      <circle cx="528" cy="95" r="5" fill="#76b900"/>
+      <text x="540" y="99" fill="#e8eaf6" font-size="9" font-family="monospace">LocateAnything-3B</text>
+
+      <rect x="510" y="120" width="170" height="30" rx="6" fill="rgba(79,195,247,0.1)" stroke="#4fc3f7" stroke-width="1"/>
+      <circle cx="528" cy="135" r="5" fill="#4fc3f7"/>
+      <text x="540" y="139" fill="#e8eaf6" font-size="9" font-family="monospace">Micro-SAM</text>
+
+      <!-- Dimension explanations -->
+      <text x="520" y="180" fill="#546e7a" font-size="8" font-weight="700" font-family="monospace">Dimension Scores:</text>
+      <text x="520" y="198" fill="#90a4ae" font-size="7.5" font-family="monospace">EM Accuracy: domain-specific quality</text>
+      <text x="520" y="213" fill="#90a4ae" font-size="7.5" font-family="monospace">Speed: boxes/sec or masks/sec</text>
+      <text x="520" y="228" fill="#90a4ae" font-size="7.5" font-family="monospace">Flexibility: multi-object, language</text>
+      <text x="520" y="243" fill="#90a4ae" font-size="7.5" font-family="monospace">Zero-Shot: no fine-tuning needed</text>
+    </svg>
+  </div>
+
+  <!-- Comparison Table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>Dimension</th><th>LocateAnything</th><th>Micro-SAM</th><th>Notes</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Segmentation Quality</td>
+          <td class="accent-orange">❓ Untested on EM</td>
+          <td class="accent-green">✅ Trained on EM</td>
+          <td>Domain shift is the core research question</td>
+        </tr>
+        <tr>
+          <td>Inference Speed</td>
+          <td class="accent-green">⚡ 12.7 boxes/sec</td>
+          <td>~3-5 masks/sec</td>
+          <td>PBD gives significant throughput advantage</td>
+        </tr>
+        <tr>
+          <td>Prompting Flexibility</td>
+          <td class="accent-green">✅ Natural language</td>
+          <td>❌ Box/point only</td>
+          <td>NL prompts enable exploratory analysis</td>
+        </tr>
+        <tr>
+          <td>Multi-Object Handling</td>
+          <td class="accent-green">✅ Dense detection</td>
+          <td>⚠️ One object per prompt</td>
+          <td>Critical for crowded EM fields</td>
+        </tr>
+        <tr>
+          <td>Domain Adaptation</td>
+          <td>❌ General training</td>
+          <td class="accent-green">✅ Microscopy-specific</td>
+          <td>Fine-tuning closes this gap (future work)</td>
+        </tr>
+        <tr>
+          <td>Output Format</td>
+          <td>Boxes + Points</td>
+          <td>Pixel masks</td>
+          <td>Mask conversion required for comparison</td>
+        </tr>
+        <tr>
+          <td>Resolution Handling</td>
+          <td class="accent-green">✅ Up to 2.5K native</td>
+          <td>⚠️ Fixed 1024×1024</td>
+          <td>EM images have unusual dimensions</td>
+        </tr>
+        <tr>
+          <td>Memory Footprint</td>
+          <td>~8 GB (BF16)</td>
+          <td>~4 GB</td>
+          <td>LocateAnything ~2× larger</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Resources -->
+<section id="resources">
+  <div class="section-title"><span class="num">08</span> System Resources</div>
+  <p class="section-desc">Hardware requirements, estimated costs, and execution timelines for running the full experiment suite.</p>
+
+  <!-- Resource SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 300" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="25" text-anchor="middle" fill="#e8eaf6" font-size="12" font-weight="700" font-family="monospace">Resource Requirements Profile</text>
+
+      <!-- GPU VRAM -->
+      <rect x="50" y="55" width="380" height="90" rx="10" fill="rgba(118,185,0,0.06)" stroke="#76b900" stroke-width="1.5"/>
+      <text x="240" y="77" text-anchor="middle" fill="#76b900" font-size="10" font-weight="700" font-family="monospace">GPU Memory (VRAM)</text>
+      <rect x="70" y="92" width="340" height="18" rx="4" fill="rgba(118,185,0,0.08)" stroke="#76b900" stroke-width="0.5"/>
+      <rect x="70" y="92" width="220" height="18" rx="4" fill="rgba(118,185,0,0.25)" stroke="none">
+        <animate attributeName="width" values="0;220" dur="1.5s" fill="freeze"/>
+      </rect>
+      <text x="180" y="105" text-anchor="middle" fill="#e8eaf6" font-size="8" font-family="monospace">LocateAnything: ~8 GB (BF16)</text>
+      <rect x="70" y="118" width="340" height="18" rx="4" fill="rgba(79,195,247,0.08)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <rect x="70" y="118" width="140" height="18" rx="4" fill="rgba(79,195,247,0.25)" stroke="none">
+        <animate attributeName="width" values="0;140" dur="1.5s" fill="freeze"/>
+      </rect>
+      <text x="140" y="131" text-anchor="middle" fill="#e8eaf6" font-size="8" font-family="monospace">Micro-SAM: ~4 GB</text>
+
+      <!-- Compute Time -->
+      <rect x="470" y="55" width="380" height="90" rx="10" fill="rgba(79,195,247,0.06)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="660" y="77" text-anchor="middle" fill="#4fc3f7" font-size="10" font-weight="700" font-family="monospace">Per-Image Latency</text>
+      <rect x="490" y="92" width="340" height="18" rx="4" fill="rgba(118,185,0,0.08)" stroke="#76b900" stroke-width="0.5"/>
+      <rect x="490" y="92" width="120" height="18" rx="4" fill="rgba(118,185,0,0.25)" stroke="none">
+        <animate attributeName="width" values="0;120" dur="1.5s" fill="freeze"/>
+      </rect>
+      <text x="550" y="105" text-anchor="middle" fill="#e8eaf6" font-size="8" font-family="monospace">LA (H100): ~2-5 sec</text>
+      <rect x="490" y="118" width="340" height="18" rx="4" fill="rgba(79,195,247,0.08)" stroke="#4fc3f7" stroke-width="0.5"/>
+      <rect x="490" y="118" width="100" height="18" rx="4" fill="rgba(79,195,247,0.25)" stroke="none">
+        <animate attributeName="width" values="0;100" dur="1.5s" fill="freeze"/>
+      </rect>
+      <text x="540" y="131" text-anchor="middle" fill="#e8eaf6" font-size="8" font-family="monospace">Micro-SAM: ~1-3 sec</text>
+
+      <!-- Storage -->
+      <rect x="50" y="165" width="380" height="70" rx="10" fill="rgba(179,136,255,0.06)" stroke="#b388ff" stroke-width="1.5"/>
+      <text x="240" y="187" text-anchor="middle" fill="#b388ff" font-size="10" font-weight="700" font-family="monospace">Storage Requirements</text>
+      <text x="240" y="207" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">Model: ~16 GB (safetensors) | Datasets: ~207 MB</text>
+      <text x="240" y="222" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">Results + overlays: ~500 MB estimated</text>
+
+      <!-- Cloud Options -->
+      <rect x="470" y="165" width="380" height="70" rx="10" fill="rgba(255,173,64,0.06)" stroke="#ffab40" stroke-width="1.5"/>
+      <text x="660" y="187" text-anchor="middle" fill="#ffab40" font-size="10" font-weight="700" font-family="monospace">Recommended Compute</text>
+      <text x="660" y="207" text-anchor="middle" fill="#90a4ae" font-size="8" font-family="monospace">A100 40GB / H100 (ideal) | RTX 4090 24GB (viable)</text>
+      <text x="660" y="222" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">HF ZeroGPU / Colab Pro+ / Lambda Cloud</text>
+
+      <!-- Timeline -->
+      <rect x="50" y="250" width="800" height="40" rx="8" fill="rgba(118,185,0,0.04)" stroke="#76b900" stroke-width="0.8"/>
+      <text x="450" y="267" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">Estimated Total Runtime</text>
+      <text x="450" y="282" text-anchor="middle" fill="#546e7a" font-size="7.5" font-family="monospace">Exp1 ~2h | Exp2 ~3h | Exp3 ~1.5h | Exp4 ~1.5h | Analysis ~1h | Total: ~9h (single GPU)</text>
+    </svg>
+  </div>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Minimum Viable Setup</h3>
+      <ul>
+        <li>GPU: <span class="accent-green">24 GB VRAM</span> (RTX 3090/4090, A4000)</li>
+        <li>RAM: 32 GB system memory</li>
+        <li>Storage: 50 GB free (model + datasets + results)</li>
+        <li>Python: 3.10+ with PyTorch 2.8</li>
+        <li>Runtime: ~9 hours per full experiment sweep</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>Optimal Setup</h3>
+      <ul>
+        <li>GPU: <span class="accent-blue">A100 80GB / H100</span></li>
+        <li>Can run LocateAnything + Micro-SAM concurrently</li>
+        <li>Enables batch inference (32+ images)</li>
+        <li>Resolution sweep tests without memory pressure</li>
+        <li>Reduces full sweep to ~4-5 hours</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- This Machine Check -->
+  <div class="card" style="margin-top: 1.5rem;">
+    <h3>Local Environment Status</h3>
+    <p>The local environment has PyTorch 2.8.0 + transformers 5.13.1 + Pillow 11.1.0 installed in <code style="background:var(--bg-primary);padding:0.2rem 0.5rem;border-radius:4px;font-size:0.75rem;">.venv/</code>. Need to verify GPU availability for local execution.</p>
+    <div class="code-block" style="margin-top: 0.8rem;">
+<span class="comment"># Check GPU availability</span>
+<span class="keyword">import</span> torch
+<span class="keyword">print</span>(torch.cuda.is_available())   <span class="comment"># True if GPU ready</span>
+<span class="keyword">print</span>(torch.cuda.get_device_name())  <span class="comment"># GPU model</span>
+<span class="keyword">print</span>(torch.cuda.get_device_properties(0).total_mem / 1e9)  <span class="comment"># VRAM GB</span>
+    </div>
+  </div>
+</section>
+
+<!-- Future Directions -->
+<section id="future">
+  <div class="section-title"><span class="num">09</span> Future Directions & Roadmap</div>
+  <p class="section-desc">Beyond baseline evaluation — the path from zero-shot inference to microscopy-optimized segmentation through fine-tuning and architectural adaptation.</p>
+
+  <!-- Timeline -->
+  <div class="timeline">
+    <div class="timeline-item">
+      <h4>Phase 1 — Baseline (Current)</h4>
+      <p>Run all 4 experiments, establish zero-shot performance metrics, identify failure modes. Deliver: full results report in /docs.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Phase 2 — Prompt Optimization</h4>
+      <p>Based on Exp 4 results, develop microscopy-specific prompt templates. Evaluate on held-out test sets. Goal: +5-10% recall via prompting alone.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Phase 3 — LoRA Fine-tuning</h4>
+      <p>Apply LoRA (rank 64, alpha 16) on Qwen2.5-3B decoder using Train_In images. Train with mask-derived boxes as ground truth. Expected: +15-25% IoU improvement.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Phase 4 — Box-to-Mask Head</h4>
+      <p>Attach lightweight mask decoder (similar to SAM&apos;s prompt encoder path) on top of LocateAnything&apos;s bounding box output. End-to-end trainable.</p>
+    </div>
+    <div class="timeline-item">
+      <h4>Phase 5 — Full Domain Adaptation</h4>
+      <p>Full fine-tuning with expanded microscopy datasets (beyond Lucchi++/Kasthuri++). Publish results as microscopy-specific checkpoint.</p>
+    </div>
+  </div>
+
+  <!-- Future Pipeline SVG -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 200" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="22" text-anchor="middle" fill="#e8eaf6" font-size="11" font-weight="700" font-family="monospace">Fine-Tuning Pipeline Architecture (Phase 3+)</text>
+
+      <!-- Base model (frozen) -->
+      <rect x="50" y="50" width="130" height="60" rx="8" fill="rgba(79,195,247,0.08)" stroke="#4fc3f7" stroke-width="1.5"/>
+      <text x="115" y="72" text-anchor="middle" fill="#4fc3f7" font-size="8" font-weight="700" font-family="monospace">Moon-ViT</text>
+      <text x="115" y="85" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">FROZEN</text>
+      <text x="115" y="100" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">400M params</text>
+
+      <!-- LoRA adapters -->
+      <rect x="235" y="50" width="150" height="60" rx="8" fill="rgba(118,185,0,0.1)" stroke="#76b900" stroke-width="2"/>
+      <text x="310" y="72" text-anchor="middle" fill="#76b900" font-size="8" font-weight="700" font-family="monospace">Qwen2.5-3B + LoRA</text>
+      <text x="310" y="85" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">TRAINABLE adapters</text>
+      <text x="310" y="100" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">rank=64, alpha=16</text>
+
+      <!-- Mask head -->
+      <rect x="440" y="50" width="140" height="60" rx="8" fill="rgba(179,136,255,0.08)" stroke="#b388ff" stroke-width="1.5"/>
+      <text x="510" y="72" text-anchor="middle" fill="#b388ff" font-size="8" font-weight="700" font-family="monospace">Mask Decoder</text>
+      <text x="510" y="85" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Phase 3+</text>
+      <text x="510" y="100" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">lightweight MLP</text>
+
+      <!-- Output -->
+      <rect x="635" y="50" width="160" height="60" rx="8" fill="rgba(118,185,0,0.12)" stroke="#76b900" stroke-width="2">
+        <animate attributeName="opacity" values="0.8;1;0.8" dur="2s" repeatCount="indefinite"/>
+      </rect>
+      <text x="715" y="72" text-anchor="middle" fill="#76b900" font-size="9" font-weight="700" font-family="monospace">Pixel Masks</text>
+      <text x="715" y="88" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Mitochondria / Cells</text>
+      <text x="715" y="100" text-anchor="middle" fill="#546e7a" font-size="7" font-family="monospace">native resolution</text>
+
+      <!-- Training data note -->
+      <rect x="235" y="130" width="150" height="55" rx="6" fill="rgba(118,185,0,0.04)" stroke="#76b900" stroke-width="0.5"/>
+      <text x="310" y="147" text-anchor="middle" fill="#76b900" font-size="8" font-family="monospace">Training Data</text>
+      <text x="310" y="161" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Train_In &#x2192; NL prompts</text>
+      <text x="310" y="173" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">Train_Out &#x2192; box targets</text>
+      <line x1="310" y1="130" x2="310" y2="110" stroke="#76b900" stroke-width="0.5" stroke-dasharray="2 2"/>
+
+      <!-- LoRA config note -->
+      <rect x="440" y="130" width="140" height="55" rx="6" fill="rgba(255,173,64,0.04)" stroke="#ffab40" stroke-width="0.5"/>
+      <text x="510" y="147" text-anchor="middle" fill="#ffab40" font-size="8" font-family="monospace">LoRA Config</text>
+      <text x="510" y="161" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">lr: 1e-4, batch: 8</text>
+      <text x="510" y="173" text-anchor="middle" fill="#90a4ae" font-size="7" font-family="monospace">epochs: 50, loss: L1</text>
+      <line x1="510" y1="130" x2="510" y2="110" stroke="#ffab40" stroke-width="0.5" stroke-dasharray="2 2"/>
+    </svg>
+  </div>
+
+  <!-- Expected improvement bars -->
+  <div class="grid-2" style="margin-top: 2rem;">
+    <div class="card">
+      <h3>LoRA Fine-Tuning Config (Phase 3)</h3>
+      <div class="code-block" style="margin:0;">
+<span class="keyword">from</span> peft <span class="keyword">import</span> LoraConfig
+
+config = LoraConfig(
+    r=<span class="num">64</span>,              <span class="comment"># rank</span>
+    lora_alpha=<span class="num">16</span>,      <span class="comment"># scaling</span>
+    target_modules=[<span class="string">"q_proj"</span>, <span class="string">"v_proj"</span>],
+    lora_dropout=<span class="num">0.05</span>,
+    modules_to_save=[<span class="string">"box_head"</span>]
+)
+      </div>
+    </div>
+    <div class="card">
+      <h3>Expected Improvements</h3>
+      <div class="bar-container">
+        <div class="bar-label"><span>Zero-shot IoU</span><span>~0.35-0.45</span></div>
+        <div class="bar-track"><div class="bar-fill orange" style="width:40%"></div></div>
+      </div>
+      <div class="bar-container">
+        <div class="bar-label"><span>+ Prompt tuning</span><span>~0.45-0.55</span></div>
+        <div class="bar-track"><div class="bar-fill blue" style="width:50%"></div></div>
+      </div>
+      <div class="bar-container">
+        <div class="bar-label"><span>+ LoRA fine-tune</span><span>~0.65-0.75</span></div>
+        <div class="bar-track"><div class="bar-fill green" style="width:70%"></div></div>
+      </div>
+      <div class="bar-container">
+        <div class="bar-label"><span>+ Mask decoder</span><span>~0.75-0.85</span></div>
+        <div class="bar-track"><div class="bar-fill green" style="width:80%"></div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer>
+  <p>LocateAnything Baseline Experiment Design &#x2014; NVIDIA Research | HF Implementation</p>
+  <p style="margin-top: 0.5rem;">Paper: <span class="accent-blue">arxiv.org/abs/2605.27365</span> | Model: <span class="accent-green">nvidia/LocateAnything-3B</span></p>
+  <p style="margin-top: 1rem; color: var(--text-dim);">Experiment design document generated for controlled evaluation on Lucchi++ &amp; Kasthuri++ electron microscopy benchmarks.</p>
+</footer>
+
+</body>
+</html>

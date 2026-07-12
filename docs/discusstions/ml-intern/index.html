@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LocateAnything: Baseline Performance Experiment Design — Microscopy Domain</title>
+<style>
+/* ── Reset & Tokens ─────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0b0d12;
+  --surface:  #12151c;
+  --surface2: #181c25;
+  --border:   #232834;
+  --text:     #e4e6eb;
+  --muted:    #8b8fa3;
+  --accent:   #7c5cff;
+  --accent2:  #00d4ff;
+  --green:    #34d399;
+  --orange:   #fb923c;
+  --red:      #f87171;
+  --yellow:   #fbbf24;
+  --blue:     #60a5fa;
+  --pink:     #f472b6;
+  --radius:   12px;
+  --shadow:   0 4px 24px rgba(0,0,0,.4);
+  --font:     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --mono:     'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Utility ────────────────────────────────────────────────── */
+.container { max-width: 1100px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 80px 0; position: relative; }
+.section-title {
+  font-size: 2rem; font-weight: 700; margin-bottom: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.section-subtitle { color: var(--muted); font-size: 1.05rem; margin-bottom: 40px; }
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px; margin-bottom: 24px;
+}
+.card h3 { color: var(--accent2); font-size: 1.2rem; margin-bottom: 12px; }
+.card p, .card li { font-size: .95rem; color: #c8cdd8; }
+
+/* ── NAV ────────────────────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(11,13,18,.85); backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  padding: 14px 0;
+}
+nav .container { display: flex; align-items: center; justify-content: space-between; }
+nav .logo { font-weight: 800; font-size: 1.1rem; color: var(--text); letter-spacing: -0.02em; }
+nav .logo span { color: var(--accent); }
+nav ul { display: flex; gap: 28px; list-style: none; }
+nav ul a {
+  color: var(--muted); text-decoration: none; font-size: .88rem;
+  transition: color .2s;
+}
+nav ul a:hover { color: var(--accent2); }
+
+/* ── HERO ───────────────────────────────────────────────────── */
+.hero {
+  padding: 100px 0 80px; text-align: center;
+  position: relative; overflow: hidden;
+}
+.hero::before {
+  content: ''; position: absolute; top: -200px; left: 50%;
+  transform: translateX(-50%); width: 1200px; height: 600px;
+  background: radial-gradient(ellipse, rgba(124,92,255,.12) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero h1 {
+  font-size: 3.2rem; font-weight: 800; letter-spacing: -0.03em;
+  line-height: 1.15; margin-bottom: 20px; position: relative;
+}
+.hero h1 .glow {
+  background: linear-gradient(135deg, var(--accent), var(--accent2), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.hero .tagline { color: var(--muted); font-size: 1.15rem; max-width: 680px; margin: 0 auto 36px; position: relative; }
+.hero .badges { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; position: relative; }
+.badge {
+  padding: 6px 16px; border-radius: 999px; font-size: .82rem; font-weight: 600;
+  border: 1px solid var(--border); background: var(--surface);
+}
+.badge.violet { border-color: var(--accent); color: var(--accent); }
+.badge.cyan   { border-color: var(--accent2); color: var(--accent2); }
+.badge.green  { border-color: var(--green); color: var(--green); }
+.badge.orange { border-color: var(--orange); color: var(--orange); }
+
+/* ── FEATURE GRID ──────────────────────────────────────────── */
+.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+.feature-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 28px; transition: transform .25s, border-color .25s;
+}
+.feature-card:hover { transform: translateY(-4px); border-color: var(--accent); }
+.feature-card .icon { width: 44px; height: 44px; margin-bottom: 16px; }
+.feature-card h4 { font-size: 1.05rem; margin-bottom: 8px; color: var(--text); }
+.feature-card p  { font-size: .88rem; color: var(--muted); }
+
+/* ── TABLES ─────────────────────────────────────────────────── */
+table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: .88rem; }
+table th, table td { padding: 12px 16px; text-align: left; border-bottom: 1px solid var(--border); }
+table th { background: var(--surface2); color: var(--accent2); font-weight: 600; font-size: .82rem; text-transform: uppercase; letter-spacing: .06em; }
+table td { color: #c8cdd8; }
+table tr:hover td { background: rgba(124,92,255,.04); }
+
+/* ── CODE BLOCKS ────────────────────────────────────────────── */
+pre {
+  background: #0d0f15; border: 1px solid var(--border); border-radius: 8px;
+  padding: 20px 24px; overflow-x: auto; font-family: var(--mono);
+  font-size: .84rem; line-height: 1.6; margin: 16px 0; color: #c8cdd8;
+}
+code { font-family: var(--mono); }
+pre .kw { color: var(--accent); }       /* keyword */
+pre .fn { color: var(--accent2); }      /* function */
+pre .str { color: var(--green); }       /* string */
+pre .com { color: var(--muted); font-style: italic; }  /* comment */
+pre .var { color: var(--orange); }      /* variable */
+pre .num { color: var(--yellow); }      /* number */
+.pre-wrap { position: relative; }
+.copy-btn {
+  position: absolute; top: 8px; right: 12px; background: var(--surface2);
+  border: 1px solid var(--border); color: var(--muted); padding: 4px 10px;
+  border-radius: 6px; font-size: .75rem; cursor: pointer;
+}
+
+/* ── METRIC CARDS ───────────────────────────────────────────── */
+.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; }
+.metric-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px; text-align: center;
+}
+.metric-card .value {
+  font-size: 2rem; font-weight: 800; margin-bottom: 4px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.metric-card .label { font-size: .82rem; color: var(--muted); }
+.metric-card .sub   { font-size: .75rem; color: var(--border); margin-top: 2px; }
+
+/* ── EXPERIMENT PIPELINE ────────────────────────────────────── */
+.pipeline { display: flex; flex-direction: column; gap: 0; }
+.pipeline-step {
+  display: flex; align-items: flex-start; gap: 20px; padding: 16px 0;
+  position: relative;
+}
+.pipeline-step:not(:last-child)::after {
+  content: ''; position: absolute; left: 22px; top: 60px; bottom: -16px;
+  width: 2px; background: linear-gradient(to bottom, var(--accent), var(--accent2));
+  opacity: .3;
+}
+.step-num {
+  flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: .95rem;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; z-index: 1;
+}
+.step-content h4 { font-size: 1rem; margin-bottom: 4px; color: var(--text); }
+.step-content p  { font-size: .88rem; color: var(--muted); }
+
+/* ── COMPARISON TABLE ───────────────────────────────────────── */
+.comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.comparison-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px;
+}
+.comparison-card.la  { border-top: 3px solid var(--accent); }
+.comparison-card.ms  { border-top: 3px solid var(--accent2); }
+.comparison-card h4  { font-size: 1.1rem; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+.comparison-card ul  { list-style: none; padding: 0; }
+.comparison-card ul li {
+  display: flex; justify-content: space-between; padding: 8px 0;
+  border-bottom: 1px solid var(--border); font-size: .88rem;
+}
+.comparison-card ul li:last-child { border-bottom: none; }
+.comparison-card .key   { color: var(--muted); }
+.comparison-card .val   { color: var(--text); font-weight: 600; }
+
+/* ── OUTLINE CARDS (for future work) ────────────────────────── */
+.outline-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 16px;
+  display: flex; align-items: flex-start; gap: 16px;
+}
+.outline-num {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 8px;
+  background: rgba(124,92,255,.15); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: .9rem;
+}
+.outline-content h4 { font-size: 1rem; margin-bottom: 4px; }
+.outline-content p  { font-size: .88rem; color: var(--muted); }
+
+/* ── TIMELINE ───────────────────────────────────────────────── */
+.timeline { position: relative; padding-left: 30px; }
+.timeline::before {
+  content: ''; position: absolute; left: 10px; top: 0; bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--accent), var(--accent2), var(--green));
+  opacity: .4;
+}
+.timeline-item { position: relative; margin-bottom: 32px; }
+.timeline-item::before {
+  content: ''; position: absolute; left: -25px; top: 6px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--bg);
+}
+.timeline-item.done::before { background: var(--green); }
+.timeline-item.active::before { background: var(--accent2); box-shadow: 0 0 8px var(--accent2); }
+.timeline-item h4 { font-size: 1rem; margin-bottom: 2px; }
+.timeline-item p  { font-size: .88rem; color: var(--muted); }
+
+/* ── CHARTS (SVG container) ─────────────────────────────────── */
+.chart-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 24px; margin-bottom: 20px;
+}
+.chart-card h4 { font-size: 1rem; margin-bottom: 16px; color: var(--text); }
+.chart-wrap { width: 100%; overflow: hidden; }
+
+/* ── CALLOUT BOXES ──────────────────────────────────────────── */
+.callout {
+  border-radius: var(--radius); padding: 20px 24px; margin: 20px 0;
+  display: flex; gap: 12px; font-size: .92rem;
+}
+.callout.warn { background: rgba(251,146,60,.08); border: 1px solid rgba(251,146,60,.25); color: var(--orange); }
+.callout.info { background: rgba(96,165,250,.08); border: 1px solid rgba(96,165,250,.25); color: var(--blue); }
+.callout.tip  { background: rgba(52,211,153,.08); border: 1px solid rgba(52,211,153,.25); color: var(--green); }
+.callout.danger { background: rgba(248,113,113,.08); border: 1px solid rgba(248,113,113,.25); color: var(--red); }
+.callout .icon { flex-shrink: 0; width: 22px; height: 22px; }
+
+/* ── ANIMATIONS ─────────────────────────────────────────────── */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulseRing {
+  0%   { transform: scale(1); opacity: .6; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+@keyframes dashFlow {
+  to { stroke-dashoffset: -100; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+@keyframes glowPulse {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(124,92,255,.4)); }
+  50%      { filter: drop-shadow(0 0 12px rgba(124,92,255,.8)); }
+}
+@keyframes rotateGear {
+  to { transform: rotate(360deg); }
+}
+@keyframes growWidth {
+  from { width: 0; }
+  to   { width: 100%; }
+}
+.anim-fade { animation: fadeInUp .7s ease both; }
+.float { animation: float 4s ease-in-out infinite; }
+
+/* ── SVG STYLES ─────────────────────────────────────────────── */
+.svg-label    { fill: var(--muted); font-size: 12px; font-family: var(--font); }
+.svg-title    { fill: var(--text); font-size: 16px; font-weight: 700; font-family: var(--font); }
+.svg-sub      { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.svg-axis     { stroke: var(--border); stroke-width: 1; }
+.svg-tick-lbl { fill: var(--muted); font-size: 10px; font-family: var(--mono); }
+.svg-bar-lbl  { fill: var(--text); font-size: 11px; font-weight: 600; font-family: var(--font); }
+.svg-legend-txt { fill: var(--muted); font-size: 11px; font-family: var(--font); }
+.dash-anim { stroke-dasharray: 8 4; animation: dashFlow 6s linear infinite; }
+.grid-line { stroke: var(--border); stroke-width: .5; opacity: .35; }
+
+/* ── FOOTER ─────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border); padding: 40px 0;
+  text-align: center; color: var(--muted); font-size: .82rem;
+}
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2rem; }
+  .comparison-grid { grid-template-columns: 1fr; }
+  nav ul { display: none; }
+}
+
+/* ── SMOOTH SCROLL PADDING ──────────────────────────────────── */
+[id] { scroll-margin-top: 70px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     NAV
+     ═══════════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="container">
+    <div class="logo">∿ ML Intern &nbsp;<span>·</span>&nbsp; LocateAnything × Microscopy</div>
+    <ul>
+      <li><a href="#overview">Overview</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#datasets">Datasets</a></li>
+      <li><a href="#experiments">Experiments</a></li>
+      <li><a href="#comparison">micro-sam</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#future">Future</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     HERO
+     ═══════════════════════════════════════════════════════════════ -->
+<header class="hero" id="overview">
+  <div class="container">
+    <h1 class="anim-fade">
+      Controlled Experiments for<br>
+      <span class="glow">LocateAnything</span> on<br>
+      Connectomics Data
+    </h1>
+    <p class="tagline anim-fade" style="animation-delay:.15s;">
+      A comprehensive baseline performance study running NVIDIA's vision-language grounding model<br>
+      on Lucchi++ & Kasthuri++ microscopy datasets against micro-sam.
+    </p>
+    <div class="badges anim-fade" style="animation-delay:.3s;">
+      <span class="badge violet">arxiv:2605.27365</span>
+      <span class="badge cyan">MoonViT + Qwen2.5-3B</span>
+      <span class="badge green">Parallel Box Decoding</span>
+      <span class="badge orange">A100-grade GPU</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     1. PROJECT OVERVIEW
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="intro">
+  <div class="container">
+    <h2 class="section-title">1. Project Overview</h2>
+    <p class="section-subtitle">What are we testing, on what data, and why does it matter?</p>
+
+    <div class="card">
+      <h3>Goal / Objective</h3>
+      <p>
+        Establish a <strong style="color:var(--accent2)">quantitative baseline</strong> for how well the
+        <strong>LocateAnything-3B</strong> model — a general-purpose vision-language grounding system trained
+        on natural images — performs on <strong style="color:var(--accent)">electron microscopy (EM) connectomics</strong>
+        datasets. Compare directly with the microscopy-domain tool <strong>micro-sam</strong> to measure the domain gap
+        and identify where fine-tuning / LoRA adaptation is most needed.
+      </p>
+    </div>
+
+    <!-- Three-pillar cards -->
+    <div class="feature-grid" style="margin-top:32px;">
+
+      <div class="feature-card anim-fade" style="animation-delay:.1s;">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <circle cx="22" cy="22" r="20" stroke="url(#g1)" stroke-width="2"/>
+          <path d="M14 28 L22 14 L30 28 Z" stroke="var(--accent2)" stroke-width="2" fill="none"/>
+          <circle cx="22" cy="22" r="3" fill="var(--accent)"/>
+          <defs><linearGradient id="g1" x1="0" y1="0" x2="44" y2="44">
+            <stop offset="0%" stop-color="var(--accent)"/>
+            <stop offset="100%" stop-color="var(--accent2)"/>
+          </linearGradient></defs>
+        </svg>
+        <h4>Setup the Model</h4>
+        <p>Configure LocateAnything-3B (NVIDIA/HF) in <code>hybrid</code> decoding mode. Bf16, A100-40/80 GB, single-slice inference pipeline with native-resolution MoonViT.</p>
+      </div>
+
+      <div class="feature-card anim-fade" style="animation-delay:.2s;">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <rect x="6" y="6" width="32" height="32" rx="4" stroke="var(--green)" stroke-width="2"/>
+          <line x1="6" y1="18" x2="38" y2="18" stroke="var(--accent2)" stroke-width="1.5" opacity=".5"/>
+          <line x1="18" y1="6" x2="18" y2="38" stroke="var(--accent2)" stroke-width="1.5" opacity=".5"/>
+          <line x1="30" y1="6" x2="30" y2="38" stroke="var(--accent2)" stroke-width="1.5" opacity=".5"/>
+        </svg>
+        <h4>Test on Lucchi++ / Kasthuri++</h4>
+        <p>Run zero-shot inference per-2D-slice through both EM volumes. Record boxes, parse &lt;box&gt; tokens, project to pixel coordinates, compute metrics.</p>
+      </div>
+
+      <div class="feature-card anim-fade" style="animation-delay:.3s;">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <circle cx="22" cy="22" r="16" stroke="var(--orange)" stroke-width="2" stroke-dasharray="4 3"/>
+          <path d="M16 22 L20 26 L28 18" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h4>Report &amp; Compare</h4>
+        <p>Generate segmentation reports in <code>/docs</code>: per-slice mSA, F1@{IoU}, 3D adaptive Rand. Head-to-head comparison against micro-sam as SOTA microscopy baseline.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     2. ARCHITECTURE OVERVIEW  (animated SVG)
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="architecture" style="background:var(--surface);">
+  <div class="container">
+    <h2 class="section-title">2. LocateAnything Architecture</h2>
+    <p class="section-subtitle">MoonViT + Qwen2.5-3B-Instruct with Parallel Box Decoding</p>
+
+    <!-- Animated architecture SVG -->
+    <div class="chart-card">
+      <h4>End-to-End Inference Pipeline</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 380" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="grad-vit" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#a78bfa"/>
+            </linearGradient>
+            <linearGradient id="grad-llm" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#00d4ff"/><stop offset="100%" stop-color="#67e8f9"/>
+            </linearGradient>
+            <linearGradient id="grad-out" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#6ee7b7"/>
+            </linearGradient>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+            </marker>
+            <marker id="arrow-active" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--accent2)"/>
+            </marker>
+          </defs>
+
+          <!-- Box 1: Image Input -->
+          <g class="float" style="animation-delay:0s;">
+            <rect x="20" y="40" width="150" height="120" rx="10" fill="rgba(124,92,255,.08)" stroke="url(#grad-vit)" stroke-width="1.5"/>
+            <text x="95" y="75" text-anchor="middle" class="svg-title" font-size="13">EM Slice</text>
+            <text x="95" y="95" text-anchor="middle" class="svg-sub">1024 × 768 × 3</text>
+            <!-- Microscope icon -->
+            <path d="M70 115 L70 135 L85 135 L85 150 L105 150 L105 135 L120 135 L120 115 Z" stroke="var(--accent)" stroke-width="1.5" fill="none"/>
+            <circle cx="95" cy="120" r="4" fill="var(--accent)" opacity=".5"/>
+            <text x="95" y="158" text-anchor="middle" class="svg-sub">Grayscale → RGB</text>
+          </g>
+
+          <!-- Box 2: MoonViT -->
+          <g class="float" style="animation-delay:.4s;">
+            <rect x="220" y="40" width="170" height="120" rx="10" fill="rgba(124,92,255,.08)" stroke="url(#grad-vit)" stroke-width="1.5"/>
+            <text x="305" y="70" text-anchor="middle" class="svg-title" font-size="13">MoonViT-SO-400M</text>
+            <text x="305" y="90" text-anchor="middle" class="svg-sub">27-layer ViT  ·  h=1152</text>
+            <text x="305" y="105" text-anchor="middle" class="svg-sub">patch=14  ·  native-res</text>
+            <!-- Pulsing ring -->
+            <circle cx="260" cy="130" r="6" fill="var(--accent)">
+              <animate attributeName="r" values="6;10;6" dur="2.5s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values=".7;.2;.7" dur="2.5s" repeatCount="indefinite"/>
+            </circle>
+            <text x="275" y="134" class="svg-sub" font-size="10">400M params</text>
+          </g>
+
+          <!-- Box 3: Projector -->
+          <rect x="430" y="60" width="120" height="80" rx="10" fill="rgba(124,92,255,.06)" stroke="var(--accent)" stroke-width="1" stroke-dasharray="4 3"/>
+          <text x="490" y="90" text-anchor="middle" class="svg-title" font-size="12">MLP Projector</text>
+          <text x="490" y="108" text-anchor="middle" class="svg-sub">2-layer</text>
+          <text x="490" y="123" text-anchor="middle" class="svg-sub">1152 → 2048</text>
+
+          <!-- Box 4: Qwen2.5 -->
+          <g class="float" style="animation-delay:.8s;">
+            <rect x="590" y="40" width="200" height="120" rx="10" fill="rgba(0,212,255,.08)" stroke="url(#grad-llm)" stroke-width="1.5"/>
+            <text x="690" y="70" text-anchor="middle" class="svg-title" font-size="13">Qwen2.5-3B-Instruct</text>
+            <text x="690" y="90" text-anchor="middle" class="svg-sub">36-layer LLM  ·  h=2048</text>
+            <text x="690" y="105" text-anchor="middle" class="svg-sub">vocab=152,681 + special tokens</text>
+            <circle cx="630" cy="130" r="6" fill="var(--accent2)">
+              <animate attributeName="r" values="6;10;6" dur="2.5s" begin=".5s" repeatCount="indefinite"/>
+              <animate attributeName="opacity" values=".7;.2;.7" dur="2.5s" begin=".5s" repeatCount="indefinite"/>
+            </circle>
+            <text x="645" y="134" class="svg-sub" font-size="10">3B params</text>
+          </g>
+
+          <!-- Box 5: PBD -->
+          <rect x="840" y="40" width="200" height="120" rx="10" fill="rgba(52,211,153,.08)" stroke="url(#grad-out)" stroke-width="1.5"/>
+          <text x="940" y="70" text-anchor="middle" class="svg-title" font-size="13">Parallel Box Decoding</text>
+          <text x="940" y="90" text-anchor="middle" class="svg-sub">6-token blocks: &lt;box&gt;..&lt;/box&gt;</text>
+          <text x="940" y="105" text-anchor="middle" class="svg-sub">Coordinates ∈ [0, 1000]</text>
+          <text x="940" y="125" text-anchor="middle" class="svg-sub" style="fill:var(--green);">Modes: fast · hybrid · slow</text>
+
+          <!-- Box 6: Output -->
+          <rect x="840" y="210" width="200" height="90" rx="10" fill="rgba(52,211,153,.06)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="940" y="238" text-anchor="middle" class="svg-title" font-size="13">Per-Slice Output</text>
+          <text x="940" y="258" text-anchor="middle" class="svg-sub">[x1,y1,x2,y2] per mitochondrion</text>
+          <text x="940" y="275" text-anchor="middle" class="svg-sub" style="fill:var(--green);">F1@{0.5} · F1@{0.75} · mSA</text>
+
+          <!-- Arrows -->
+          <line x1="170" y1="100" x2="218" y2="100" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <line x1="390" y1="100" x2="428" y2="100" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <line x1="550" y1="100" x2="588" y2="100" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <line x1="790" y1="100" x2="838" y2="100" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <line x1="940" y1="160" x2="940" y2="208" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Prompt input -->
+          <rect x="590" y="180" width="200" height="30" rx="6" fill="rgba(0,212,255,.05)" stroke="var(--accent2)" stroke-width="1" opacity=".7"/>
+          <text x="690" y="200" text-anchor="middle" class="svg-sub" font-size="10">"Locate all mitochondria..."</text>
+          <line x1="690" y1="210" x2="690" y2="158" stroke="var(--accent2)" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>
+
+          <!-- Phase labels -->
+          <text x="260" y="20" text-anchor="middle" class="svg-sub" style="fill:var(--accent);">① Vision</text>
+          <text x="490" y="20" text-anchor="middle" class="svg-sub" style="fill:var(--accent);">② Project</text>
+          <text x="690" y="20" text-anchor="middle" class="svg-sub" style="fill:var(--accent2);">③ Decode</text>
+          <text x="940" y="20" text-anchor="middle" class="svg-sub" style="fill:var(--green);">④ Boxes</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Detailed specs -->
+    <div class="card" style="margin-top:24px;">
+      <h3>Model Specifications</h3>
+      <table>
+        <tr><th>Component</th><th>Detail</th><th>Value</th></tr>
+        <tr><td>Vision Encoder</td><td>MoonViT-SO-400M</td><td>27-layer ViT, h=1152, 16 heads, patch=14, native-res</td></tr>
+        <tr><td>LLM Backbone</td><td>Qwen2.5-3B-Instruct</td><td>36-layer, h=2048, 16 heads, 2 KV-heads, vocab=152,681</td></tr>
+        <tr><td>Projector</td><td>2-layer MLP</td><td>1152-dim → 2048-dim</td></tr>
+        <tr><td>Total Parameters</td><td></td><td><strong style="color:var(--accent2)">3.83 B</strong></td></tr>
+        <tr><td>Model Weights (bf16)</td><td></td><td>~7.14 GB (two safetensor shards)</td></tr>
+        <tr><td>Inference Memory</td><td>Single slice, bf16</td><td>~10 GB total (weights + activations + KV)</td></tr>
+        <tr><td>Output Format</td><td></td><td>Sequence of &lt;box&gt; blocks with quantized [0,1000] coordinates</td></tr>
+        <tr><td>Throughput</td><td>Hybrid mode, H100</td><td>12.7 BPS (boxes/sec)</td></tr>
+        <tr><td>Training Data</td><td></td><td>12M images, 138M queries — <em>zero microscopy</em></td></tr>
+      </table>
+    </div>
+
+    <!-- Parallel Box Decoding callout -->
+    <div class="callout info" style="margin-top:20px;">
+      <svg class="icon" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M11 6v6M11 15v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>
+        <strong>Parallel Box Decoding (PBD)</strong> — the core innovation. Instead of emitting coordinates token-by-token
+        (e.g., <code>&lt;box&gt;</code> <code>1</code> <code>23</code> <code>45</code> <code>6</code> <code>&lt;/box&gt;</code>),
+        the model treats each 6-token block as an atomic unit decoded in <em>one parallel step</em>, yielding a
+        <strong>2.5× throughput</strong> improvement over autoregressive methods.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     3. DATASETS  (animated SVG)
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="datasets">
+  <div class="container">
+    <h2 class="section-title">3. The Datasets</h2>
+    <p class="section-subtitle">Lucchi++ and Kasthuri++ — standard connectomics EM segmentation benchmarks</p>
+
+    <!-- Animated volume SVG -->
+    <div class="chart-card">
+      <h4>3D Volume → 2D Slice Extraction Pipeline</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 320" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="lucchi-g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#7c5cff"/><stop offset="100%" stop-color="#00d4ff"/>
+            </linearGradient>
+            <linearGradient id="kas-g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#f472b6"/><stop offset="100%" stop-color="#fb923c"/>
+            </linearGradient>
+          </defs>
+
+          <!-- === Lucchi++ === -->
+          <!-- 3D volume -->
+          <g transform="translate(40,30)">
+            <!-- Top face -->
+            <path d="M0 50 L120 20 L200 50 L80 80 Z" fill="rgba(124,92,255,.12)" stroke="url(#lucchi-g)" stroke-width="1.5"/>
+            <!-- Front face -->
+            <path d="M0 50 L0 130 L80 160 L80 80 Z" fill="rgba(124,92,255,.07)" stroke="url(#lucchi-g)" stroke-width="1.5"/>
+            <!-- Right face -->
+            <path d="M80 80 L80 160 L200 130 L200 50 Z" fill="rgba(124,92,255,.04)" stroke="url(#lucchi-g)" stroke-width="1.5"/>
+            <!-- Annotation label -->
+            <text x="100" y="105" text-anchor="middle" class="svg-title" font-size="12">Lucchi++</text>
+            <text x="100" y="120" text-anchor="middle" class="svg-sub">1024×768×165 vx</text>
+            <text x="100" y="133" text-anchor="middle" class="svg-sub">5×5×5 nm</text>
+            <!-- Title -->
+            <text x="100" y="0" text-anchor="middle" class="svg-sub" style="fill:var(--accent);">FIB-SEM  ·  Mouse Hippocampus</text>
+          </g>
+
+          <!-- === Kasthuri++ === -->
+          <g transform="translate(320,30)">
+            <path d="M0 40 L100 10 L180 40 L80 70 Z" fill="rgba(244,114,182,.12)" stroke="url(#kas-g)" stroke-width="1.5"/>
+            <path d="M0 40 L0 110 L80 140 L80 70 Z" fill="rgba(244,114,182,.07)" stroke="url(#kas-g)" stroke-width="1.5"/>
+            <path d="M80 70 L80 140 L180 110 L180 40 Z" fill="rgba(244,114,182,.04)" stroke="url(#kas-g)" stroke-width="1.5"/>
+            <text x="90" y="95" text-anchor="middle" class="svg-title" font-size="12">Kasthuri++</text>
+            <text x="90" y="110" text-anchor="middle" class="svg-sub">1463×1613×85 vx</text>
+            <text x="90" y="123" text-anchor="middle" class="svg-sub">3×3×30 nm</text>
+            <text x="90" y="-5" text-anchor="middle" class="svg-sub" style="fill:var(--pink);">ATUM-SEM  ·  Mouse Cortex</text>
+          </g>
+
+          <!-- === 2D Slice visualization === -->
+          <g transform="translate(620,30)">
+            <!-- Slice grid -->
+            <rect x="0" y="0" width="200" height="160" rx="8" fill="rgba(96,165,250,.05)" stroke="var(--blue)" stroke-width="1" stroke-dasharray="4 3"/>
+            <!-- Simulated EM image (noise-like grid) -->
+            <line x1="20"  y1="0" x2="20"  y2="160" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="50"  y1="0" x2="50"  y2="160" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="80"  y1="0" x2="80"  y2="160" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="110" y1="0" x2="110" y2="160" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="140" y1="0" x2="140" y2="160" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="170" y1="0" x2="170" y2="160" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="0" y1="30"  x2="200" y2="30"  stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="0" y1="60"  x2="200" y2="60"  stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="0" y1="90"  x2="200" y2="90"  stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <line x1="0" y1="120" x2="200" y2="120" stroke="var(--border)" stroke-width=".7" opacity=".4"/>
+            <!-- Mitochondria-like ellipses -->
+            <ellipse cx="45"  cy="40" rx="14" ry="9"  fill="none" stroke="var(--green)" stroke-width="1.5" opacity=".7"/>
+            <ellipse cx="120" cy="70" rx="18" ry="11" fill="none" stroke="var(--green)" stroke-width="1.5" opacity=".7"/>
+            <ellipse cx="80"  cy="110" rx="12" ry="8"  fill="none" stroke="var(--green)" stroke-width="1.5" opacity=".7"/>
+            <ellipse cx="165" cy="35" rx="15" ry="10" fill="none" stroke="var(--green)" stroke-width="1.5" opacity=".7"/>
+            <ellipse cx="155" cy="130" rx="13" ry="9" fill="none" stroke="var(--green)" stroke-width="1.5" opacity=".7"/>
+            <!-- Boxes (LocateAnything outputs) -->
+            <rect x="32" y="28" width="28" height="20" rx="2" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="3 2">
+              <animate attributeName="opacity" values=".4;1;.4" dur="3s" repeatCount="indefinite"/>
+            </rect>
+            <rect x="103" y="56" width="36" height="24" rx="2" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="3 2">
+              <animate attributeName="opacity" values=".4;1;.4" dur="3s" begin=".5s" repeatCount="indefinite"/>
+            </rect>
+            <rect x="68" y="98" width="26" height="18" rx="2" fill="none" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="3 2">
+              <animate attributeName="opacity" values=".4;1;.4" dur="3s" begin="1s" repeatCount="indefinite"/>
+            </rect>
+            <text x="100" y="180" text-anchor="middle" class="svg-title" font-size="13">2D Slice + Detections</text>
+            <text x="100" y="195" text-anchor="middle" class="svg-sub">GT in green · PBD output in orange</text>
+          </g>
+
+          <!-- Arrows -->
+          <line x1="240" y1="115" x2="318" y2="115" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+          <line x1="500" y1="115" x2="618" y2="115" stroke="var(--muted)" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+          <!-- Bottom info -->
+          <text x="120" y="250" text-anchor="middle" class="svg-sub">Binary mitochondria mask</text>
+          <text x="120" y="265" text-anchor="middle" class="svg-sub">Stack split: Train / Test</text>
+          <text x="400" y="250" text-anchor="middle" class="svg-sub">Corrected mito labels</text>
+          <text x="400" y="265" text-anchor="middle" class="svg-sub">208 mitos annotated</text>
+          <text x="720" y="250" text-anchor="middle" class="svg-sub">165 slices × 2 stacks</text>
+          <text x="720" y="265" text-anchor="middle" class="svg-sub">Per-slice inference</text>
+
+          <!-- Reduced dataset dimensions annotation -->
+          <rect x="30" y="285" width="1000" height="30" rx="6" fill="rgba(251,146,60,.06)" stroke="rgba(251,146,60,.2)"/>
+          <text x="530" y="305" text-anchor="middle" class="svg-sub" font-size="11" style="fill:var(--orange);">⚠ Both datasets are 3D volumetric binary segmentation — LocateAnything produces 2D bounding boxes. This format mismatch requires a wrapping strategy for fair evaluation.</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Dataset comparison table -->
+    <div class="card" style="margin-top:24px;">
+      <h3>Dataset Specs</h3>
+      <table>
+        <tr><th>Attribute</th><th>Lucchi++</th><th>Kasthuri++</th></tr>
+        <tr><td>Tissue</td><td>Mouse hippocampus</td><td>Mouse S1 primary somatosensory cortex</td></tr>
+        <tr><td>Imaging</td><td>FIB-SEM</td><td>ATUM-SEM</td></tr>
+        <tr><td>Resolution</td><td>5 × 5 × 5 nm</td><td>3 × 3 × 30 nm</td></tr>
+        <tr><td>Volume</td><td>1024 × 768 × 165 vx</td><td>1463 × 1613 × 85 vx</td></tr>
+        <tr><td>Annotation</td><td>Binary mitochondria mask</td><td>Corrected mitochondria labels (208)</td></tr>
+        <tr><td>Train/Test</td><td>Two neighboring stacks (1 train, 1 test)</td><td>Single annotated volume</td></tr>
+        <tr><td>Format</td><td>HDF5 / Zarr</td><td>.vsvr → converted to HDF5</td></tr>
+        <tr><td>Download</td><td>epfl.ch/labs/cvlab/data/data-em/</td><td>lichtman.rc.fas.harvard.edu/vast/</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     4. EXPERIMENT DESIGN  (animated pipeline SVG)
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="experiments" style="background:var(--surface);">
+  <div class="container">
+    <h2 class="section-title">4. Experiment Design</h2>
+    <p class="section-subtitle">Five complementary experiments characterize every dimension of baseline performance.</p>
+
+    <!-- Experiment Pipeline SVG -->
+    <div class="chart-card">
+      <h4>Experiment Execution Pipeline</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 500" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow2" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--accent2)"/>
+            </marker>
+          </defs>
+
+          <!-- E1 -->
+          <g>
+            <rect x="0" y="0" width="195" height="130" rx="10" fill="rgba(124,92,255,.08)" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="97" y="28" text-anchor="middle" class="svg-title" font-size="13">E1 · Zero-Shot Baseline</text>
+            <text x="97" y="48" text-anchor="middle" class="svg-sub">Per-slice inference</text>
+            <text x="97" y="63" text-anchor="middle" class="svg-sub">Default prompt P1</text>
+            <text x="97" y="78" text-anchor="middle" class="svg-sub">F1@{0.5, 0.75, Mean}</text>
+            <text x="97" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--accent);">A100-40GB  ·  ~4h</text>
+            <!-- pulse -->
+            <circle cx="20" cy="16" r="5" fill="var(--accent)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- E2 -->
+          <g>
+            <rect x="220" y="0" width="195" height="130" rx="10" fill="rgba(0,212,255,.08)" stroke="var(--accent2)" stroke-width="1.5"/>
+            <text x="317" y="28" text-anchor="middle" class="svg-title" font-size="13">E2 · Prompt Sensitivity</text>
+            <text x="317" y="48" text-anchor="middle" class="svg-sub">6 prompt variants</text>
+            <text x="317" y="63" text-anchor="middle" class="svg-sub">P1–P6 templates</text>
+            <text x="317" y="78" text-anchor="middle" class="svg-sub">Ablation on prompt style</text>
+            <text x="317" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--accent2);">A100-40GB  ·  ~2h</text>
+            <circle cx="240" cy="16" r="5" fill="var(--accent2)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" begin=".3s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- E3 -->
+          <g>
+            <rect x="440" y="0" width="195" height="130" rx="10" fill="rgba(52,211,153,.08)" stroke="var(--green)" stroke-width="1.5"/>
+            <text x="537" y="28" text-anchor="middle" class="svg-title" font-size="13">E3 · Volumetric Wrapper</text>
+            <text x="537" y="48" text-anchor="middle" class="svg-sub">3D box-tracking</text>
+            <text x="537" y="63" text-anchor="middle" class="svg-sub">Hungarian linking</text>
+            <text x="537" y="78" text-anchor="middle" class="svg-sub">Box→Mask conversion</text>
+            <text x="537" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--green);">A100-80GB  ·  ~12h</text>
+            <circle cx="460" cy="16" r="5" fill="var(--green)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" begin=".6s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- E4 -->
+          <g>
+            <rect x="660" y="0" width="195" height="130" rx="10" fill="rgba(251,146,60,.08)" stroke="var(--orange)" stroke-width="1.5"/>
+            <text x="757" y="28" text-anchor="middle" class="svg-title" font-size="13">E4 · micro-sam Comparison</text>
+            <text x="757" y="48" text-anchor="middle" class="svg-sub">Same splits + same metrics</text>
+            <text x="757" y="63" text-anchor="middle" class="svg-sub">Box + Mask evaluation</text>
+            <text x="757" y="78" text-anchor="middle" class="svg-sub">vit_b / vit_b_em variants</text>
+            <text x="757" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--orange);">A100-40GB  ·  ~8h</text>
+            <circle cx="680" cy="16" r="5" fill="var(--orange)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" begin=".9s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- E5 -->
+          <g>
+            <rect x="880" y="0" width="195" height="130" rx="10" fill="rgba(244,114,182,.08)" stroke="var(--pink)" stroke-width="1.5"/>
+            <text x="977" y="28" text-anchor="middle" class="svg-title" font-size="13">E5 · Resolution Scaling</text>
+            <text x="977" y="48" text-anchor="middle" class="svg-sub">Native / 2× / 4×</text>
+            <text x="977" y="63" text-anchor="middle" class="svg-sub">Tiled 512×512</text>
+            <text x="977" y="78" text-anchor="middle" class="svg-sub">MoonViT native-res test</text>
+            <text x="977" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--pink);">A100-40GB  ·  ~2h</text>
+            <circle cx="900" cy="16" r="5" fill="var(--pink)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" begin="1.2s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- Arrows between experiments -->
+          <line x1="196" y1="65" x2="218" y2="65" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow2)" opacity=".7"/>
+          <line x1="416" y1="65" x2="438" y2="65" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow2)" opacity=".7"/>
+          <line x1="636" y1="65" x2="658" y2="65" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow2)" opacity=".7"/>
+          <line x1="856" y1="65" x2="878" y2="65" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow2)" opacity=".7"/>
+
+          <!-- Bottom: Resource summary -->
+          <rect x="0" y="155" width="1060" height="70" rx="8" fill="rgba(124,92,255,.04)" stroke="var(--border)"/>
+          <text x="30" y="178" class="svg-sub" font-size="11" style="fill:var(--accent2);">System Resources</text>
+          <text x="30" y="195" class="svg-sub" font-size="10">GPU:</text>
+          <text x="80" y="195" class="svg-sub" font-size="10">E1/E2/E5: A100-40GB  |  E3: A100-80GB (volume buffer)  |  E4: A100-40GB</text>
+          <text x="30" y="212" class="svg-sub" font-size="10">Time:</text>
+          <text x="80" y="212" class="svg-sub" font-size="10">E1: 4h  ·  E2: 2h  ·  E3: 12h  ·  E4: 8h  ·  E5: 2h  ·  Total: ~28h (~$112 @ $4/hr)</text>
+          <text x="540" y="178" class="svg-sub" font-size="11" style="fill:var(--accent2);">Monitoring</text>
+          <text x="540" y="195" class="svg-sub" font-size="10">Trackio dashboard  ·  Per-step loss logging  ·  Slice-level metrics export</text>
+          <text x="540" y="212" class="svg-sub" font-size="10">Serializable JSON reports  ·  Qualitative slice figures</text>
+
+          <!-- Metrics mapping -->
+          <rect x="0" y="240" width="1060" height="100" rx="8" fill="rgba(52,211,153,.04)" stroke="rgba(52,211,153,.2)"/>
+          <text x="30" y="263" class="svg-sub" font-size="11" style="fill:var(--green);">Evaluation Metrics Mapping</text>
+          <text x="30" y="283" class="svg-sub" font-size="10">Box-level:</text>
+          <text x="120" y="283" class="svg-sub" font-size="10">F1@{IoU=0.5}, F1@{IoU=0.75}, F1@Mean(0.5:0.95) — standard precision/recall on bounding-box IoU against GT mask-derived boxes</text>
+          <text x="30" y="300" class="svg-sub" font-size="10">Mask-level:</text>
+          <text x="120" y="300" class="svg-sub" font-size="10">mSA (mean Segmentation Accuracy @ IoU∈{0.5..0.9}), SA50, SA75, Dice — via box→ellipsoid mask conversion</text>
+          <text x="30" y="317" class="svg-sub" font-size="10">Volume-level:</text>
+          <text x="120" y="317" class="svg-sub" font-size="10">Adapted Rand error, Variation of Information, CREMI-score — for E3 3D-wrapped outputs</text>
+          <text x="30" y="334" class="svg-sub" font-size="10">Throughput:</text>
+          <text x="120" y="334" class="svg-sub" font-size="10">BPS (boxes/sec) per experiment — measure on A100, report vs paper H100 baseline</text>
+
+          <!-- Prompt table -->
+          <rect x="0" y="355" width="1060" height="130" rx="8" fill="rgba(251,146,60,.04)" stroke="rgba(251,146,60,.2)"/>
+          <text x="30" y="378" class="svg-sub" font-size="11" style="fill:var(--orange);">Prompt Variants (E2)</text>
+          <text x="30" y="400" class="svg-sub" font-size="10">P1: "Locate all the instances that matches the following description: mitochondria."</text>
+          <text x="30" y="417" class="svg-sub" font-size="10">P2: "Locate all the instances that matches the following description: mitochondrion."</text>
+          <text x="30" y="434" class="svg-sub" font-size="10">P3: "Detect every mitochondrion in this electron microscopy image."</text>
+          <text x="30" y="451" class="svg-sub" font-size="10">P4: "Locate all instances of dark oval structures with double membranes."</text>
+          <text x="30" y="468" class="svg-sub" font-size="10">P5: "Locate all the instances that matches the following description: synaptic vesicle." (negative control)</text>
+          <text x="30" y="485" class="svg-sub" font-size="10">P6: "Point to: the center of a mitochondrion." (pointing mode)</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Three-pillar cards -->
+    <div class="feature-grid" style="margin-top:28px;">
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <rect x="5" y="5" width="34" height="34" rx="6" stroke="var(--accent)" stroke-width="2"/>
+          <path d="M12 28 L22 14 L32 28" stroke="var(--accent2)" stroke-width="2" fill="none"/>
+          <circle cx="22" cy="22" r="4" fill="var(--accent)"/>
+        </svg>
+        <h4>E1: Zero-Shot Baseline</h4>
+        <p>Run LocateAnything-3B in hybrid mode on every test-slice. Record raw boxes. Compute F1 metrics. This is the reference point for everything else.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <path d="M22 6 L22 38 M6 22 L38 22" stroke="var(--accent2)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="22" cy="14" r="4" fill="var(--green)" opacity=".7"/>
+          <circle cx="14" cy="30" r="4" fill="var(--orange)" opacity=".7"/>
+          <circle cx="30" cy="30" r="4" fill="var(--accent)" opacity=".7"/>
+        </svg>
+        <h4>E2: Prompt Sensitivity</h4>
+        <p>Test 6 prompt variants: noun form, descriptive, negative control, pointing mode. Measure F1 deltas to quantify how much language affects zero-shot EM accuracy.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <ellipse cx="22" cy="14" rx="10" ry="6" stroke="var(--green)" stroke-width="2" fill="none"/>
+          <ellipse cx="22" cy="22" rx="10" ry="6" stroke="var(--green)" stroke-width="2" fill="none" opacity=".7"/>
+          <ellipse cx="22" cy="30" rx="10" ry="6" stroke="var(--green)" stroke-width="2" fill="none" opacity=".4"/>
+          <line x1="22" y1="8" x2="22" y2="36" stroke="var(--accent2)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        </svg>
+        <h4>E3: 3D Wrapping</h4>
+        <p>Link per-slice boxes across Z with Hungarian matching on IoU overlap. Convert tracked boxes to mask via ellipsoid fill. Evaluate 3D mSA, Rand error, CREMI-score.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <rect x="6" y="10" width="14" height="24" rx="3" stroke="var(--accent)" stroke-width="2"/>
+          <rect x="24" y="10" width="14" height="24" rx="3" stroke="var(--accent2)" stroke-width="2"/>
+          <text x="13" y="26" text-anchor="middle" fill="var(--accent)" font-size="10" font-weight="700">LA</text>
+          <text x="31" y="26" text-anchor="middle" fill="var(--accent2)" font-size="10" font-weight="700">MS</text>
+        </svg>
+        <h4>E4: micro-sam Comparison</h4>
+        <p>Fair head-to-head. Same splits, same metrics. Evaluate both at box-level and mask-level. vit_b_em fine-tuned vs zero-shot LA.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <rect x="5" y="5" width="14" height="14" rx="2" stroke="var(--accent)" stroke-width="1.5" fill="rgba(124,92,255,.06)"/>
+          <rect x="25" y="5" width="14" height="14" rx="2" stroke="var(--accent2)" stroke-width="1.5" fill="rgba(0,212,255,.06)"/>
+          <rect x="5" y="25" width="14" height="14" rx="2" stroke="var(--accent)" stroke-width="1.5" fill="rgba(124,92,255,.06)"/>
+          <rect x="25" y="25" width="14" height="14" rx="2" stroke="var(--accent2)" stroke-width="1.5" fill="rgba(0,212,255,.06)"/>
+          <path d="M12 12 L32 32" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="3 3"/>
+        </svg>
+        <h4>E5: Resolution Scaling</h4>
+        <p>MoonViT's native-resolution ViT should preserve spatial detail. Test native 1024×768 vs 2× / 4× downsampled vs tiled 512×512, measure F1 impact.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     5. COMPARISON WITH MICRO-SAM  (animated SVG)
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="comparison">
+  <div class="container">
+    <h2 class="section-title">5. Comparison: LocateAnything vs micro-sam</h2>
+    <p class="section-subtitle">Head-to-head protocol design for a fair, reproducible comparison</p>
+
+    <!-- Head-to-head SVG -->
+    <div class="chart-card">
+      <h4>Parallel Evaluation Protocol</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 420" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <marker id="arrow3" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="var(--muted)"/>
+            </marker>
+          </defs>
+
+          <!-- Common Input -->
+          <rect x="380" y="10" width="300" height="60" rx="10" fill="rgba(96,165,250,.08)" stroke="var(--blue)" stroke-width="1.5"/>
+          <text x="530" y="35" text-anchor="middle" class="svg-title" font-size="13">Common Input Data</text>
+          <text x="530" y="52" text-anchor="middle" class="svg-sub">Lucchi++ test stack  ·  Kasthuri++ test volume  ·  Same Z-split</text>
+          <circle cx="400" cy="30" r="5" fill="var(--blue)">
+            <animate attributeName="opacity" values=".8;.3;.8" dur="2s" repeatCount="indefinite"/>
+          </circle>
+
+          <!-- LA Branch -->
+          <g>
+            <rect x="60" y="95" width="300" height="130" rx="10" fill="rgba(124,92,255,.07)" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="210" y="120" text-anchor="middle" class="svg-title" font-size="13">LocateAnything-3B</text>
+            <text x="210" y="140" text-anchor="middle" class="svg-sub">Zero-shot  ·  hybrid mode</text>
+            <text x="210" y="158" text-anchor="middle" class="svg-sub">Natural image-trained VLM</text>
+            <text x="210" y="176" text-anchor="middle" class="svg-sub">Prompt: "Locate mitochondria"</text>
+            <text x="210" y="196" text-anchor="middle" class="svg-sub">Output: 2D bounding boxes</text>
+            <text x="210" y="213" text-anchor="middle" class="svg-sub" style="fill:var(--accent);">~10 GB VRAM  ·  ~10 BPS on A100</text>
+          </g>
+
+          <!-- micro-sam Branch -->
+          <g>
+            <rect x="700" y="95" width="300" height="130" rx="10" fill="rgba(0,212,255,.07)" stroke="var(--accent2)" stroke-width="1.5"/>
+            <text x="850" y="120" text-anchor="middle" class="svg-title" font-size="13">micro-sam (vit_b_em)</text>
+            <text x="850" y="140" text-anchor="middle" class="svg-sub">Domain-tuned  ·  embedding-based</text>
+            <text x="850" y="158" text-anchor="middle" class="svg-sub">Microscopy-fine-tuned SAM</text>
+            <text x="850" y="176" text-anchor="middle" class="svg-sub">Prompt: auto instance seg (AIS)</text>
+            <text x="850" y="196" text-anchor="middle" class="svg-sub">Output: instance masks</text>
+            <text x="850" y="213" text-anchor="middle" class="svg-sub" style="fill:var(--accent2);">~4 GB VRAM  ·  ~3 BPS (AIS)</text>
+          </g>
+
+          <!-- Arrows from Common Input -->
+          <line x1="460" y1="70" x2="210" y2="93" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow3)" opacity=".7"/>
+          <line x1="620" y1="70" x2="850" y2="93" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow3)" opacity=".7"/>
+
+          <!-- Metrics Box -->
+          <rect x="280" y="250" width="500" height="100" rx="10" fill="rgba(52,211,153,.06)" stroke="var(--green)" stroke-width="1.5"/>
+          <text x="530" y="275" text-anchor="middle" class="svg-title" font-size="14">Common Evaluation</text>
+          <text x="530" y="295" text-anchor="middle" class="svg-sub">Box-level:  F1@{0.5}  ·  F1@{0.75}  ·  F1@Mean(0.5:0.95)</text>
+          <text x="530" y="312" text-anchor="middle" class="svg-sub">Mask-level: mSA  ·  SA50  ·  SA75  ·  Dice  ·  Adapted Rand</text>
+          <text x="530" y="330" text-anchor="middle" class="svg-sub" style="fill:var(--green);">Both evaluated on same slices, same GT, same thresholds</text>
+
+          <!-- Arrows down to metrics -->
+          <line x1="210" y1="225" x2="430" y2="248" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow3)" opacity=".5"/>
+          <line x1="850" y1="225" x2="630" y2="248" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow3)" opacity=".5"/>
+
+          <!-- Bridge strategy -->
+          <rect x="280" y="365" width="500" height="40" rx="8" fill="rgba(251,146,60,.06)" stroke="rgba(251,146,60,.2)"/>
+          <text x="530" y="390" text-anchor="middle" class="svg-sub" font-size="11" style="fill:var(--orange);">Bridge: Convert LA boxes → masks (ellipsoid fill or SAM decoder prompting) before computing mask-level metrics</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Comparison cards -->
+    <div class="comparison-grid" style="margin-top:24px;">
+      <div class="comparison-card la">
+        <h4>
+          <span style="color:var(--accent);">●</span> LocateAnything-3B
+        </h4>
+        <ul>
+          <li><span class="key">Type</span><span class="val">Visual grounding (VLMs)</span></li>
+          <li><span class="key">Output</span><span class="val">2D bounding boxes</span></li>
+          <li><span class="key">3D support</span><span class="val">None native</span></li>
+          <li><span class="key">Prompt</span><span class="val">Natural language</span></li>
+          <li><span class="key">Domain</span><span class="val">Natural images / GUI</span></li>
+          <li><span class="key">VRAM</span><span class="val">~10 GB bf16</span></li>
+          <li><span class="key">Speed</span><span class="val">~10-15 BPS (A100)</span></li>
+          <li><span class="key">Lucchi++</span><span class="val" style="color:var(--orange);">Not evaluated</span></li>
+          <li><span class="key">Kasthuri++</span><span class="val" style="color:var(--orange);">Not evaluated</span></li>
+        </ul>
+      </div>
+      <div class="comparison-card ms">
+        <h4>
+          <span style="color:var(--accent2);">●</span> micro-sam
+        </h4>
+        <ul>
+          <li><span class="key">Type</span><span class="val">Foundation segmentation</span></li>
+          <li><span class="key">Output</span><span class="val">Instance masks</span></li>
+          <li><span class="key">3D support</span><span class="val">Slice-by-slice propagation</span></li>
+          <li><span class="key">Prompt</span><span class="val">Point / box / auto</span></li>
+          <li><span class="key">Domain</span><span class="val">Microscopy-tuned (em/lm)</span></li>
+          <li><span class="key">VRAM</span><span class="val">~2-6 GB (vit_b → vit_h)</span></li>
+          <li><span class="key">Speed</span><span class="val">~1-3 BPS (AIS)</span></li>
+          <li><span class="key">Lucchi++</span><span class="val" style="color:var(--green);">Evaluated (mSA)</span></li>
+          <li><span class="key">Kasthuri++</span><span class="val" style="color:var(--green);">Protocol defined</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="callout danger" style="margin-top:20px;">
+      <svg class="icon" viewBox="0 0 22 22" fill="none"><path d="M11 6v6M11 15v.01M2 18h18L11 2 2 18z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+      <div>
+        <strong>Critical Protocol Mismatch:</strong> LocateAnything outputs <em>bounding boxes</em>, not pixel-level instance segmentation masks.
+        For fair comparison, micro-sam masks must be reduced to boxes (for F1@IoU), and LocateAnything boxes must be converted to pseudo-masks
+        (ellipsoid fill or SAM-decoder bridge) for mSA / Rand error. Both transformations are lossy — document their contribution to inter-method variance.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     6. RESULTS FRAMEWORK  (animated bar charts)
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="results" style="background:var(--surface);">
+  <div class="container">
+    <h2 class="section-title">6. Results Framework</h2>
+    <p class="section-subtitle">Predicted hypotheses, metric targets, and the reporting structure in <code>/docs/discussions/ml-intern</code></p>
+
+    <!-- Expected Results SVG -->
+    <div class="chart-card">
+      <h4>Hypothesis: Box-Level F1@0.5 by Experiment</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 350" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Y axis -->
+          <line x1="80" y1="30" x2="80" y2="280" class="svg-axis"/>
+          <text x="70" y="35"  text-anchor="end" class="svg-tick-lbl">0.4</text>
+          <text x="70" y="95"  text-anchor="end" class="svg-tick-lbl">0.3</text>
+          <text x="70" y="155" text-anchor="end" class="svg-tick-lbl">0.2</text>
+          <text x="70" y="215" text-anchor="end" class="svg-tick-lbl">0.1</text>
+          <text x="70" y="280" text-anchor="end" class="svg-tick-lbl">0.0</text>
+
+          <!-- Grid lines -->
+          <line x1="80" y1="35"  x2="1040" y2="35"  class="grid-line"/>
+          <line x1="80" y1="95"  x2="1040" y2="95"  class="grid-line"/>
+          <line x1="80" y1="155" x2="1040" y2="155" class="grid-line"/>
+          <line x1="80" y1="215" x2="1040" y2="215" class="grid-line"/>
+          <line x1="80" y1="280" x2="1040" y2="280" class="grid-line"/>
+
+          <!-- Bars: E1 -->
+          <g>
+            <rect x="120" y="155" width="60" height="125" rx="4" fill="var(--accent)" opacity=".25">
+              <animate attributeName="height" from="0" to="125" dur="1s" fill="freeze"/>
+              <animate attributeName="y" from="280" to="155" dur="1s" fill="freeze"/>
+            </rect>
+            <rect x="120" y="155" width="60" height="125" rx="4" fill="url(#grad-vit)" opacity=".8">
+              <animate attributeName="height" from="0" to="125" dur="1.2s" fill="freeze"/>
+            </rect>
+            <text x="150" y="295" text-anchor="middle" class="svg-axis">E1 · Baseline</text>
+            <text x="150" y="148" text-anchor="middle" class="svg-bar-lbl">0.18</text>
+          </g>
+
+          <!-- Bars: E2 best -->
+          <g>
+            <rect x="230" y="120" width="60" height="160" rx="4" fill="var(--accent2)" opacity=".25">
+              <animate attributeName="height" from="0" to="160" dur="1.2s" begin=".2s" fill="freeze"/>
+            </rect>
+            <rect x="230" y="120" width="60" height="160" rx="4" fill="url(#grad-llm)" opacity=".8">
+              <animate attributeName="height" from="0" to="160" dur="1.4s" begin=".2s" fill="freeze"/>
+            </rect>
+            <text x="260" y="295" text-anchor="middle" class="svg-axis">E2 · Prompt</text>
+            <text x="260" y="113" text-anchor="middle" class="svg-bar-lbl">0.25</text>
+          </g>
+
+          <!-- Bars: E3 -->
+          <g>
+            <rect x="340" y="175" width="60" height="105" rx="4" fill="var(--green)" opacity=".25">
+              <animate attributeName="height" from="0" to="105" dur="1.3s" begin=".4s" fill="freeze"/>
+            </rect>
+            <rect x="340" y="175" width="60" height="105" rx="4" fill="url(#grad-out)" opacity=".8">
+              <animate attributeName="height" from="0" to="105" dur="1.5s" begin=".4s" fill="freeze"/>
+            </rect>
+            <text x="370" y="295" text-anchor="middle" class="svg-axis">E3 · Volume</text>
+            <text x="370" y="168" text-anchor="middle" class="svg-bar-lbl">0.15</text>
+          </g>
+
+          <!-- Bars: E5 -->
+          <g>
+            <rect x="450" y="140" width="60" height="140" rx="4" fill="var(--pink)" opacity=".25">
+              <animate attributeName="height" from="0" to="140" dur="1.4s" begin=".6s" fill="freeze"/>
+            </rect>
+            <rect x="450" y="140" width="60" height="140" rx="4" fill="var(--pink)" opacity=".8">
+              <animate attributeName="height" from="0" to="140" dur="1.6s" begin=".6s" fill="freeze"/>
+            </rect>
+            <text x="480" y="295" text-anchor="middle" class="svg-axis">E5 · Native</text>
+            <text x="480" y="133" text-anchor="middle" class="svg-bar-lbl">0.22</text>
+          </g>
+
+          <!-- micro-sam baseline line -->
+          <line x1="580" y1="35" x2="1040" y2="35" stroke="var(--green)" stroke-width="2" stroke-dasharray="6 3" opacity=".5"/>
+          <text x="580" y="28" class="svg-legend-txt" style="fill:var(--green);">micro-sam mSA ≈ 0.85</text>
+          <line x1="580" y1="35" x2="1040" y2="35" stroke="var(--green)" stroke-width="3" class="dash-anim" opacity=".5"/>
+
+          <!-- LA predicted ceiling -->
+          <line x1="580" y1="95" x2="1040" y2="95" stroke="var(--accent)" stroke-width="2" stroke-dasharray="6 3" opacity=".5"/>
+          <text x="580" y="88" class="svg-legend-txt" style="fill:var(--accent);">LA ceiling after LoRA</text>
+          <line x1="580" y1="95" x2="1040" y2="95" stroke="var(--accent)" stroke-width="3" class="dash-anim" opacity=".5"/>
+
+          <!-- Gap annotation -->
+          <path d="M820 35 L820 95" stroke="var(--orange)" stroke-width="1.5" stroke-dasharray="3 3"/>
+          <polygon points="820,95 815,85 825,85" fill="var(--orange)"/>
+          <text x="820" y="70" text-anchor="middle" class="svg-bar-lbl" style="fill:var(--orange);" font-size="10">Domain gap</text>
+
+          <!-- Title -->
+          <text x="530" y="340" text-anchor="middle" class="svg-sub" font-size="11">★ Predicted F1@0.5 — values are hypotheses, not measured results yet</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Expected metrics table -->
+    <div class="card" style="margin-top:24px;">
+      <h3>Predicted Metrics Summary (Hypotheses)</h3>
+      <table>
+        <tr><th>Experiment</th><th>Dataset</th><th>F1@0.5 (pred.)</th><th>mSA (pred.)</th><th>Notes</th></tr>
+        <tr><td>E1 Baseline</td><td>Lucchi++</td><td>0.10 – 0.25</td><td>—</td><td>Zero-shot, default prompt, per-slice</td></tr>
+        <tr><td>E1 Baseline</td><td>Kasthuri++</td><td>0.08 – 0.20</td><td>—</td><td>Cortex is visually more abstract</td></tr>
+        <tr><td>E2 Best Prompt</td><td>Lucchi++</td><td>0.20 – 0.35</td><td>—</td><td>Descriptive prompt (P4)</td></tr>
+        <tr><td>E2 Pointing</td><td>Lucchi++</td><td>0.15 – 0.30 (centroid)</td><td>—</td><td>P6 mode: point-to-center</td></tr>
+        <tr><td>E3 Volumetric</td><td>Lucchi++</td><td>—</td><td>0.10 – 0.18</td><td>After 3D wrapping pipeline</td></tr>
+        <tr><td>E4 micro-sam</td><td>Lucchi++</td><td>0.80 – 0.90</td><td>0.82 – 0.88</td><td>Domain-tuned — strong ceiling</td></tr>
+        <tr><td>E5 Native-res</td><td>Lucchi++</td><td>0.18 – 0.30</td><td>—</td><td>Native &gt; 2× ≈ 4× downsampled</td></tr>
+      </table>
+    </div>
+
+    <div class="callout tip" style="margin-top:20px;">
+      <svg class="icon" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M11 7v5M11 15v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>
+        <strong>Why predict low numbers?</strong> The domain gap is real and dominant. LocateAnything has never seen EM data.
+        Its concept of "mitochondria" comes from natural-image supervision where mitochondria are <em>never labeled</em>.
+        The value of this experiment is <strong>quantifying the gap</strong>, which directly motivates the fine-tuning phase.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     7. SYSTEM RESOURCES & CODE BLUEPRINT
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="resources">
+  <div class="container">
+    <h2 class="section-title">7. System Resources &amp; Code Blueprint</h2>
+    <p class="section-subtitle">Hardware budget, memory profile, and the inference/evaluation script skeleton</p>
+
+    <!-- Resources SVG -->
+    <div class="chart-card">
+      <h4>GPU Memory Allocation (A100-40GB, Experiment 1)</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 200" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- GPU outline -->
+          <rect x="30" y="20" width="1000" height="100" rx="10" fill="rgba(96,165,250,.04)" stroke="var(--blue)" stroke-width="1.5"/>
+          <text x="40" y="42" class="svg-sub" font-size="11" style="fill:var(--blue);">A100 · 40 GB VRAM</text>
+
+          <!-- Memory segments -->
+          <rect x="30" y="50" width="180" height="60" rx="4" fill="var(--accent)" opacity=".7"/>
+          <text x="120" y="85" text-anchor="middle" class="svg-bar-lbl" font-size="12">7.1 GB</text>
+          <text x="120" y="100" text-anchor="middle" class="svg-sub" font-size="10">Weights</text>
+
+          <rect x="212" y="50" width="60" height="60" rx="4" fill="var(--accent2)" opacity=".7"/>
+          <text x="242" y="85" text-anchor="middle" class="svg-bar-lbl" font-size="12">1.5</text>
+          <text x="242" y="100" text-anchor="middle" class="svg-sub" font-size="10">KV cache</text>
+
+          <rect x="274" y="50" width="90" height="60" rx="4" fill="var(--green)" opacity=".7"/>
+          <text x="319" y="85" text-anchor="middle" class="svg-bar-lbl" font-size="12">2.2</text>
+          <text x="319" y="100" text-anchor="middle" class="svg-sub" font-size="10">Vision act</text>
+
+          <rect x="366" y="50" width="120" height="60" rx="4" fill="var(--orange)" opacity=".7"/>
+          <text x="426" y="85" text-anchor="middle" class="svg-bar-lbl" font-size="12">3.0</text>
+          <text x="426" y="100" text-anchor="middle" class="svg-sub" font-size="10">Decode act</text>
+
+          <rect x="488" y="50" width="160" height="60" rx="4" fill="var(--pink)" opacity=".7"/>
+          <text x="568" y="85" text-anchor="middle" class="svg-bar-lbl" font-size="12">4.2</text>
+          <text x="568" y="100" text-anchor="middle" class="svg-sub" font-size="10">Eval buffer</text>
+
+          <!-- Free -->
+          <rect x="650" y="50" width="380" height="60" rx="4" fill="none" stroke="var(--muted)" stroke-width="1" stroke-dasharray="4 3"/>
+          <text x="840" y="85" text-anchor="middle" class="svg-bar-lbl" font-size="12" style="fill:var(--muted);">~22 GB free</text>
+          <text x="840" y="100" text-anchor="middle" class="svg-sub" font-size="10">Batching / tmp</text>
+
+          <!-- Legend -->
+          <text x="30" y="145" class="svg-legend-tlbl">System RAM: 32 GB (E1) / 64 GB (E3) · Storage: ~10 GB · OS+CUDA: ~3 GB</text>
+          <text x="30" y="160" class="svg-legend-tlbl">fp8 (load_in_8bit=True): halves weight VRAM → ~3.6 GB, enables A10G-16GB training</text>
+          <text x="30" y="175" class="svg-legend-tlbl">int4: weight VRAM ~1.8 GB → comfortable on any modern GPU</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Code blueprint -->
+    <div class="pre-wrap" style="margin-top:24px;">
+      <button class="copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy</button>
+      <pre><span class="com"># ── inference.py ── Run LocateAnything-3B on Lucchi++ slices ──</span>
+
+<span class="kw">from</span> PIL <span class="kw">import</span> Image
+<span class="kw">from</span> transformers <span class="kw">import</span> AutoModel, AutoTokenizer
+<span class="kw">import</span> torch, h5py, json, numpy <span class="kw">as</span> np
+<span class="kw">from</span> elf.evaluation <span class="kw">import</span> mean_segmentation_accuracy, dice_score
+
+<span class="com"># ① Load model (bf16, A100-40GB)</span>
+model = AutoModel.from_pretrained(
+    <span class="str">"nvidia/LocateAnything-3B"</span>,
+    torch_dtype=torch.bfloat16,
+    trust_remote_code=<span class="kw">True</span>,
+).cuda().eval()
+tokenizer = AutoTokenizer.from_pretrained(<span class="str">"nvidia/LocateAnything-3B"</span>)
+
+<span class="com"># ② Load Lucchi++ test volume (one stack: 165 × 768 × 1024)</span>
+<span class="kw">with</span> h5py.File(<span class="str">"/datasets/lucchi/test.h5"</span>) <span class="kw">as</span> f:
+    volume = f[<span class="str">"volume"</span>][:]    <span class="com"># shape (165, 768, 1024)</span>
+    labels = f[<span class="str">"labels"</span>][:]    <span class="com"># binary mitochondria mask</span>
+
+<span class="com"># ③ Per-slice inference</span>
+prompt = <span class="str">"Locate all the instances that matches the following description: mitochondria."</span>
+results = {}
+<span class="kw">for</span> z <span class="kw">in</span> range(volume.shape[<span class="num">0</span>]):
+    img = Image.fromarray(volume[z]).convert(<span class="str">"RGB"</span>)
+    inputs = processor(text=prompt, images=img, return_tensors=<span class="str">"pt"</span>).cuda()
+    <span class="kw">with</span> torch.no_grad():
+        out = model.generate(**inputs, mode=<span class="str">"hybrid"</span>, max_new_tokens=<span class="num">2048</span>)
+    boxes = parse_boxes(out[<span class="num">0</span>].cpu().tolist(), img.width, img.height)
+    metric = eval_slice(boxes, labels[z])
+    results[z] = {*<span class="str">"boxes"</span>: boxes, **metric}
+
+<span class="com"># ④ Report</span>
+f1_scores = [r[<span class="str">"f1_50"</span>] <span class="kw">for</span> r <span class="kw">in</span> results.values()]
+print(<span class="f">"Mean F1@0.5 = {np.mean(f1_scores):.3f} ± {np.std(f1_scores):.3f}"</span>)
+json.dump(results, open(<span class="str">"/docs/discussions/ml-intern/results_e1.json"</span>, <span class="str">"w"</span>))</pre>
+    </div>
+
+    <!-- Metrics blueprint -->
+    <div class="pre-wrap" style="margin-top:12px;">
+      <button class="copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy</button>
+      <pre><span class="com"># ── metrics.py ── Box + Mask metrics for EM evaluation ──</span>
+
+<span class="kw">def</span> <span class="fn">eval_slice</span>(pred_boxes, gt_mask):
+    <span class="str">"""Compute F1@0.5, F1@0.75, and mask-level mSA per slice."""</span>
+    <span class="kw">from</span> skimage.measure <span class="kw">import</span> label, regionprops
+    <span class="kw">from</span> scipy.optimize <span class="kw">import</span> linear_sum_assignment
+
+    gt_inst = label(gt_mask)
+    gt_boxes = [r.bbox <span class="kw">for</span> r <span class="kw">in</span> regionprops(gt_inst)]  <span class="com"># (min_r,min_c,max_r,max_c)</span>
+    iou_mat = compute_iou_matrix(gt_boxes, pred_boxes)
+    row, col = linear_sum_assignment(-iou_mat)
+
+    tp50 = <span class="fn">sum</span>(iou_mat[r, c] >= <span class="num">0.5</span> <span class="kw">for</span> r, c <span class="kw">in</span> <span class="fn">zip</span>(row, col))
+    tp75 = <span class="fn">sum</span>(iou_mat[r, c] >= <span class="num">0.75</span> <span class="kw">for</span> r, c <span class="kw">in</span> <span class="fn">zip</span>(row, col))
+
+    f1_50  = <span class="num">2</span> * tp50  / (<span class="num">2</span> * tp50 + <span class="fn">len</span>(pred_boxes)  - tp50  + <span class="fn">len</span>(gt_boxes)  - tp50)
+    f1_75  = <span class="num">2</span> * tp75  / (<span class="num">2</span> * tp75 + <span class="fn">len</span>(pred_boxes)  - tp75  + <span class="fn">len</span>(gt_boxes)  - tp75)
+    mask_la = bbox_to_mask(pred_boxes, gt_mask.shape)  <span class="com"># ellipsoid fill</span>
+    msa, _  = mean_segmentation_accuracy(mask_la, gt_mask)
+    <span class="kw">return</span> {<span class="str">"f1_50"</span>: f1_50, <span class="str">"f1_75"</span>: f1_75, <span class="str">"msa"</span>: msa}</pre>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     8. FUTURE WORK: FINE-TUNING / LoRA  (animated SVG)
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="future" style="background:var(--surface);">
+  <div class="container">
+    <h2 class="section-title">8. Future Discussions: Fine-tuning / LoRA</h2>
+    <p class="section-subtitle">Once the zero-shot baseline is established, the adaptation phase closes the domain gap</p>
+
+    <!-- LoRA Strategy SVG -->
+    <div class="chart-card">
+      <h4>Multi-Stage Adaptation Roadmap</h4>
+      <div class="chart-wrap">
+        <svg viewBox="0 0 1060 340" width="100%" xmlns="http://www.w3.org/2000/svg">
+          <!-- Phase 1 -->
+          <g>
+            <rect x="0" y="0" width="310" height="130" rx="10" fill="rgba(124,92,255,.06)" stroke="var(--accent)" stroke-width="1.5"/>
+            <text x="155" y="28" text-anchor="middle" class="svg-title" font-size="13">Phase 1 · LoRA (q,v projections)</text>
+            <text x="155" y="48" text-anchor="middle" class="svg-sub">LoRA on Qwen2.5 attention only</text>
+            <text x="155" y="63" text-anchor="middle" class="svg-sub">Train on Lucchi++ train stack</text>
+            <text x="155" y="78" text-anchor="middle" class="svg-sub">Rank=64, alpha=128</text>
+            <text x="155" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--accent);">A100-40GB  ·  ~6h</text>
+            <circle cx="20" cy="15" r="5" fill="var(--accent)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- Phase 2 -->
+          <g>
+            <rect x="375" y="0" width="310" height="130" rx="10" fill="rgba(0,212,255,.06)" stroke="var(--accent2)" stroke-width="1.5"/>
+            <text x="530" y="28" text-anchor="middle" class="svg-title" font-size="13">Phase 2 · LoRA + ViT</text>
+            <text x="530" y="48" text-anchor="middle" class="svg-sub">LoRA on LLM + MoonViT</text>
+            <text x="530" y="63" text-anchor="middle" class="svg-sub">Vision-language alignment</text>
+            <text x="530" y="78" text-anchor="middle" class="svg-sub">Joint projector + ViT tuning</text>
+            <text x="530" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--accent2);">A100-80GB  ·  ~12h</text>
+            <circle cx="395" cy="15" r="5" fill="var(--accent2)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" begin=".3s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- Phase 3 -->
+          <g>
+            <rect x="750" y="0" width="310" height="130" rx="10" fill="rgba(52,211,153,.06)" stroke="var(--green)" stroke-width="1.5"/>
+            <text x="905" y="28" text-anchor="middle" class="svg-title" font-size="13">Phase 3 · QLoRA 4-bit</text>
+            <text x="905" y="48" text-anchor="middle" class="svg-sub">4-bit base + LoRA</text>
+            <text x="905" y="63" text-anchor="middle" class="svg-sub">Memory-efficient adaptation</text>
+            <text x="905" y="78" text-anchor="middle" class="svg-sub">Soft prompt prefix tuning</text>
+            <text x="905" y="98" text-anchor="middle" class="svg-sub" style="fill:var(--green);">A10G-24GB  ·  ~8h</text>
+            <circle cx="770" cy="15" r="5" fill="var(--green)">
+              <animate attributeName="opacity" values=".8;.3;.8" dur="2s" begin=".6s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+
+          <!-- Arrows -->
+          <line x1="311" y1="65" x2="373" y2="65" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow-active)" opacity=".7"/>
+          <line x1="686" y1="65" x2="748" y2="65" stroke="var(--accent2)" stroke-width="1.5" marker-end="url(#arrow-active)" opacity=".7"/>
+
+          <!-- LoRA config example -->
+          <rect x="0" y="150" width="1060" height="130" rx="8" fill="rgba(124,92,255,.04)" stroke="var(--border)"/>
+          <text x="30" y="175" class="svg-sub" font-size="11" style="fill:var(--accent2);">LoRA Configuration Recipe</text>
+          <text x="30" y="196" class="svg-sub" font-size="10">target_modules = ["q_proj", "v_proj", "k_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]  ·  modules_to_save = ["mlp_projector"]</text>
+          <text x="30" y="213" class="svg-sub" font-size="10">Phase 1: r=64, α=128  ·  Phase 2: r=64, α=128 (LLM) + r=32, α=64 (MoonViT)  ·  Phase 3: 4-bit base, r=16, α=32</text>
+          <text x="30" y="230" class="svg-sub" font-size="10">Learning rate: 2e-5 (Phase 1)  ·  5e-5 (Phase 2)  ·  1e-4 (Phase 3, QLoRA)</text>
+          <text x="30" y="247" class="svg-sub" font-size="10">Batch: gradient_accumulation=4, per_device_batch=1, max_length=4096  ·  2000 steps (Phase 1), 5000 (Phase 2)</text>
+          <text x="30" y="264" class="svg-sub" font-size="10">Loss: standard causal LM on (image, prompt, &lt;box&gt;-sequence) pairs parsed from GT masks → synthetic training data</text>
+
+          <!-- Expected improvement -->
+          <rect x="0" y="295" width="1060" height="35" rx="6" fill="rgba(52,211,153,.06)" stroke="rgba(52,211,153,.2)"/>
+          <text x="30" y="317" class="svg-sub" font-size="11" style="fill:var(--green);">★ Expected: After Phase 2 → F1@0.5 from ~0.18 → 0.55-0.70 (domain gap halved)  ·  After Phase 3 (QLoRA) → comparable to Phase 1 on A10G</text>
+        </svg>
+      </div>
+    </div>
+
+    <!-- Future direction cards -->
+    <div class="feature-grid" style="margin-top:24px;">
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <rect x="6" y="6" width="32" height="32" rx="6" stroke="var(--accent)" stroke-width="2"/>
+          <path d="M15 22 L20 27 L29 17" stroke="var(--green)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h4>From Boxes to Masks</h4>
+        <p>Use LocateAnything boxes as <em>prompts to SAM decoder</em> (or Cellpose) to produce instance masks — combine LA's zero-shot knowledge with domain-tuned segmentation head.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <circle cx="22" cy="22" r="14" stroke="var(--accent2)" stroke-width="2"/>
+          <path d="M22 8 L22 22 L32 22" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h4>Multi-Modal Prompts</h4>
+        <p>Extend prompts with domain context: <code>"In electron microscopy, mitochondria are..."</code>. Use chain-of-thought in the prompt to guide the VLM toward biological structure priors.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <path d="M22 6 L22 38 M6 22 L38 22" stroke="var(--green)" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="22" cy="14" r="4" fill="var(--accent)" opacity=".7"/>
+          <circle cx="14" cy="30" r="4" fill="var(--accent2)" opacity=".7"/>
+          <circle cx="30" cy="30" r="4" fill="var(--orange)" opacity=".7"/>
+        </svg>
+        <h4>Context-Aware Neighbor Slices</h4>
+        <p>Feed 3 adjacent slices to the VLM simultaneously. MoonViT's resolution flexibility means 3-slice context patches could reduce inter-slice inconsistency during 3D wrapping.</p>
+      </div>
+      <div class="feature-card">
+        <svg class="icon" viewBox="0 0 44 44" fill="none">
+          <rect x="6" y="10" width="32" height="24" rx="4" stroke="var(--orange)" stroke-width="2"/>
+          <path d="M12 22 L18 26 L32 16" stroke="var(--green)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h4>Synthetic Training Data Generation</h4>
+        <p>Use LA outputs (with human correction) as seed annotations to build a larger EM training set. Active learning loop: predict → correct → retrain → re-predict.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     9. EXECUTION TIMELINE
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="timeline">
+  <div class="container">
+    <h2 class="section-title">9. Execution Timeline</h2>
+    <p class="section-subtitle">What's next — from zero-shot baseline to domain-adapted model</p>
+
+    <div class="timeline">
+      <div class="timeline-item active">
+        <h4>Step 1 — Inspect Datasets</h4>
+        <p>Confirm Lucchi++/Kasthuri++ file format (HDF5/Zarr/TIFF), train/test splits, and annotation schema. Download if needed.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 2 — Inference Script</h4>
+        <p>Write <code>eval/la_inference.py</code> wrapping the LocateAnything-3B model in hybrid mode with per-slice box parsing.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 3 — Metrics Module</h4>
+        <p>Implement <code>eval/metrics.py</code>: F1@IoU, mSA, Dice, Adapted Rand, box-to-mask conversion utilities.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 4 — Run E1 Baseline</h4>
+        <p>Submit to HF Jobs on A100. Mean F1@0.5 across all Lucchi++/Kasthuri++ test slices. Qualitative slice figures.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 5 — Run E2 (Prompts)</h4>
+        <p>Automated prompt loop over P1–P6. Produce bar chart of F1@0.5 by prompt variant.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 6 — Build 3D Wrapper</h4>
+        <p>Hungarian linking + box→mask conversion. Submit E3 on A100-80GB. Compute 3D mSA and Rand error.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 7 — Run micro-sam Baseline</h4>
+        <p>Fair comparison on same splits. Produce combined visualization (LA vs micro-sam, box + mask levels).</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 8 — Compile Results</h4>
+        <p>Write <code>/docs/discussions/ml-intern/results_e1.md</code> … <code>results_e4.md</code>. All figures + serialized JSON outputs.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 9 — Plan LoRA Fine-tuning</h4>
+        <p>Based on Phase 1 baseline gaps, determine which components to adapt (q,v → full → QLoRA). Write Phase 1 training script.</p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 10 — Adapt &amp; Re-Evaluate</h4>
+        <p>Run Phase 1 LoRA on A100-40GB, re-run all metrics, quantify domain gap reduction. Iterate.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     10. KEY TAKEAWAYS
+     ═══════════════════════════════════════════════════════════════ -->
+<section class="section" id="takeaways" style="background:var(--surface);">
+  <div class="container">
+    <h2 class="section-title">10. Key Takeaways</h2>
+    <p class="section-subtitle">Five principles that guide the entire experimental program</p>
+
+    <div class="metric-grid">
+      <div class="metric-card">
+        <div class="value">!</div>
+        <div class="label">Domain Gap Is Dominant</div>
+        <div class="sub">Never trained on EM. Expect low F1@0.5.</div>
+      </div>
+      <div class="metric-card">
+        <div class="value">⚖</div>
+        <div class="label">Box-Mask Bridge</div>
+        <div class="sub">Box→mask conversion recovers metric parity.</div>
+      </div>
+      <div class="metric-card">
+        <div class="value">★</div>
+        <div class="label">Novel Comparison</div>
+        <div class="sub">First VLM-vs-micro-sam on Lucchi++/Kasthuri++.</div>
+      </div>
+      <div class="metric-card">
+        <div class="value">⟳</div>
+        <div class="label">Baseline for Adaptation</div>
+        <div class="sub">Zero-shot numbers anchor LoRA fine-tuning ROI.</div>
+      </div>
+      <div class="metric-card">
+        <div class="value">↗</div>
+        <div class="label">MoonViT Resolution</div>
+        <div class="sub">Native-res advantage hypothesis to test in E5.</div>
+      </div>
+    </div>
+
+    <div class="callout info" style="margin-top:32px;">
+      <svg class="icon" viewBox="0 0 22 22" fill="none"><circle cx="11" cy="11" r="10" stroke="currentColor" stroke-width="1.5"/><path d="M11 7v5M11 15v.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      <div>
+        <strong>This is the planning document.</strong> All predicted metrics are hypotheses — designed to be falsified by real measurements.
+        The actual experiment results will live in <code>/docs/discussions/ml-intern/results_e*.md</code> after each experiment completes on HF Jobs.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════════
+     FOOTER
+     ═══════════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <p>LocateAnything × Microscopy — Baseline Performance Experiment Design</p>
+    <p style="margin-top:6px; font-size:.78rem;">
+      ML Intern &nbsp;·&nbsp; nvidia/LocateAnything-3B (arxiv:2605.27365)
+      &nbsp;·&nbsp; Lucchi++ / Kasthuri++ Connectomics
+      &nbsp;·&nbsp; micro-sam (Nature Methods 2024)
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

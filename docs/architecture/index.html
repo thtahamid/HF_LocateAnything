@@ -1,0 +1,1120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LocateAnything — Architecture Deep Dive</title>
+<style>
+:root {
+  --bg: #0d1117;
+  --bg-card: #161b22;
+  --bg-card2: #1c2333;
+  --border: #30363d;
+  --text: #e6edf3;
+  --text-dim: #8b949e;
+  --accent: #58a6ff;
+  --accent2: #7ee787;
+  --accent3: #d2a8ff;
+  --accent4: #ff7b72;
+  --accent5: #ffa657;
+  --font-mono: 'SF Mono', 'Fira Code', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  padding: 2rem;
+}
+.container { max-width: 1100px; margin: 0 auto; }
+
+/* Header */
+.header {
+  text-align: center;
+  padding: 4rem 0 3rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 3rem;
+}
+.header h1 {
+  font-size: 2.8rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 0.5rem;
+}
+.header p { color: var(--text-dim); font-size: 1.1rem; }
+.header .badge {
+  display: inline-block;
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  padding: 0.3rem 0.8rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin: 0.3rem;
+  color: var(--accent);
+}
+.source-links { margin-top: 1.2rem; }
+.source-links a {
+  color: var(--accent2);
+  text-decoration: none;
+  font-size: 0.9rem;
+  margin: 0 0.6rem;
+  border-bottom: 1px dashed var(--accent2);
+}
+.source-links a:hover { opacity: 0.8; }
+
+/* Nav */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: rgba(13,17,23,0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: 0.8rem 0;
+  margin-bottom: 2rem;
+}
+.nav-inner { max-width: 1100px; margin: 0 auto; display: flex; gap: 1.5rem; flex-wrap: wrap; padding: 0 2rem; }
+.nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.3rem 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+}
+.nav a:hover, .nav a.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Sections */
+.section {
+  margin-bottom: 5rem;
+  scroll-margin-top: 4rem;
+}
+.section h2 {
+  font-size: 1.8rem;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+.section .subtitle { color: var(--text-dim); margin-bottom: 2rem; font-size: 0.95rem; }
+
+/* Cards */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+}
+.card h3 { color: var(--accent3); margin-bottom: 1rem; font-size: 1.2rem; }
+.card h4 { color: var(--accent5); margin: 1.5rem 0 0.5rem; font-size: 1rem; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+th, td { padding: 0.6rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+th { color: var(--accent); font-weight: 600; font-size: 0.9rem; }
+td { font-size: 0.9rem; color: var(--text); }
+td code { color: var(--accent2); }
+
+/* Code blocks */
+pre {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.2rem;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin: 1rem 0;
+}
+code { font-family: var(--font-mono); font-size: 0.9em; }
+
+/* SVG container */
+.svg-container {
+  background: var(--bg-card2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+.svg-container svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Animations */
+@keyframes pulse { 0%,100%{opacity:0.4} 50%{opacity:1} }
+@keyframes flow { 0%{stroke-dashoffset:20} 100%{stroke-dashoffset:0} }
+@keyframes fadeInUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes slideIn { from{opacity:0;transform:translateX(-30px)} to{opacity:1;transform:translateX(0)} }
+@keyframes dropToken { 0%{opacity:0;transform:scale(0.5)} 60%{opacity:1;transform:scale(1.1)} 100%{opacity:1;transform:scale(1)} }
+@keyframes drawBox { from{stroke-dashoffset:400} to{stroke-dashoffset:0} }
+@keyframes highlight { 0%{fill:rgba(88,166,255,0)} 50%{fill:rgba(88,166,255,0.15)} 100%{fill:rgba(88,166,255,0)} }
+@keyframes scanLine { 0%{transform:translateX(0)} 100%{transform:translateX(400px)} }
+@keyframes rotate { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+.anim-fade { animation: fadeInUp 0.8s ease-out both; }
+.anim-slide { animation: slideIn 0.6s ease-out both; }
+.anim-pulse { animation: pulse 2s ease-in-out infinite; }
+.anim-drop { animation: dropToken 0.5s ease-out both; }
+.anim-draw { stroke-dasharray: 400; animation: drawBox 2s ease-out both; }
+.anim-flow { stroke-dasharray: 5; animation: flow 1s linear infinite; }
+.anim-scan { animation: scanLine 3s linear infinite; }
+.anim-rotate { transform-origin: center; animation: rotate 20s linear infinite; }
+
+/* Stagger delays */
+.d1{animation-delay:0.1s} .d2{animation-delay:0.2s} .d3{animation-delay:0.3s}
+.d4{animation-delay:0.4s} .d5{animation-delay:0.5s} .d6{animation-delay:0.6s}
+.d7{animation-delay:0.7s} .d8{animation-delay:0.8s} .d9{animation-delay:0.9s}
+
+/* Token visualization */
+.token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 36px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 2px solid;
+  margin: 3px;
+}
+.token-box { background: rgba(88,166,255,0.15); border-color: var(--accent); color: var(--accent); }
+.token-coord { background: rgba(126,231,135,0.1); border-color: var(--accent2); color: var(--accent2); }
+.token-ref { background: rgba(210,168,255,0.1); border-color: var(--accent3); color: var(--accent3); }
+.token-null { background: rgba(139,148,158,0.1); border-color: var(--text-dim); color: var(--text-dim); }
+.token-none { background: rgba(255,123,114,0.1); border-color: var(--accent4); color: var(--accent4); }
+
+.token-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem; margin: 0.8rem 0; }
+.token-label { font-size: 0.8rem; color: var(--text-dim); min-width: 90px; }
+
+/* Grid demo */
+.grid-demo {
+  display: grid;
+  gap: 2px;
+  margin: 1rem 0;
+}
+.grid-cell {
+  aspect-ratio: 1;
+  background: rgba(88,166,255,0.08);
+  border-radius: 3px;
+  transition: all 0.3s;
+}
+.grid-cell:hover { background: rgba(88,166,255,0.3); transform: scale(1.1); z-index: 2; }
+
+/* Source footer */
+.source-footer {
+  background: var(--bg-card2);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 8px 8px 0;
+  padding: 1rem 1.5rem;
+  margin: 1.5rem 0;
+  font-size: 0.85rem;
+}
+.source-footer a { color: var(--accent); text-decoration: none; }
+.source-footer a:hover { text-decoration: underline; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  body { padding: 1rem; }
+  .header h1 { font-size: 1.8rem; }
+  .nav-inner { gap: 0.8rem; padding: 0 1rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-inner">
+    <a href="#overview">Overview</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#tokenization">Tokenization</a>
+    <a href="#block-formulation">Block Formulation</a>
+    <a href="#training">Training</a>
+    <a href="#inference">Inference</a>
+    <a href="#native-resolution">Native Resolution</a>
+  </div>
+</nav>
+
+<!-- HEADER -->
+<div class="container">
+<div class="header">
+  <h1>LocateAnything</h1>
+  <p>NVIDIA's Fast & High-Quality Vision-Language Grounding with Parallel Box Decoding</p>
+  <div style="margin-top:1rem;">
+    <span class="badge">3.8B Params</span>
+    <span class="badge">Moon-ViT + Qwen2.5</span>
+    <span class="badge">152,681 Vocab</span>
+    <span class="badge">138M Training Queries</span>
+  </div>
+  <div class="source-links">
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B" target="_blank">HF Model</a>
+    <a href="https://arxiv.org/abs/2605.27365" target="_blank">Paper (arxiv:2605.27365)</a>
+    <a href="https://research.nvidia.com/labs/lpr/locate-anything/" target="_blank">NVIDIA Research</a>
+    <a href="https://huggingface.co/spaces/nvidia/LocateAnything" target="_blank">Demo Space</a>
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: OVERVIEW -->
+<!-- ============================================================ -->
+<div id="overview" class="section">
+  <h2>1. Overview</h2>
+  <p class="subtitle">The core problem LocateAnything solves — and how it differs from standard VLM grounding.</p>
+
+  <div class="card">
+    <h3>The Bottleneck in Standard VLMs</h3>
+    <p>Vision-Language Models traditionally formulate grounding as a <strong>next-token-prediction</strong> problem: a 2D bounding box (4 floats) is serialized into many 1D tokens (each digit/punctuation becomes a token), decoded one at a time. This creates two issues:</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem; margin-top:1rem;">
+      <div>
+        <h4>Token-by-Token (Standard)</h4>
+        <p style="color:var(--text-dim); font-size:0.9rem;">Each coordinate digit predicted independently. Generations are strictly sequential — one token per model forward pass per box. The model has no internal notion that "512" and "384" are coupled coordinates.</p>
+      </div>
+      <div>
+        <h4>Parallel Box Decoding (LocateAnything)</h4>
+        <p style="color:var(--text-dim); font-size:0.9rem;">An entire 4-coordinate box is decoded as a single atomic unit in one parallel step. The model sees all 4 coordinates simultaneously and learns geometric dependencies between them.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ANIMATED COMPARISON -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 340" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/>
+        </marker>
+        <marker id="arrow2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#7ee787"/>
+        </marker>
+      </defs>
+
+      <!-- Left: Standard NTP -->
+      <text x="225" y="30" text-anchor="middle" fill="#ff7b72" font-size="14" font-weight="600">Standard NTP (token-by-token)</text>
+
+      <!-- Input image -->
+      <rect x="30" y="55" width="70" height="55" rx="5" fill="none" stroke="#30363d" stroke-width="1.5"/>
+      <text x="65" y="87" text-anchor="middle" fill="#8b949e" font-size="10">Image</text>
+
+      <!-- VLM box -->
+      <rect x="140" y="50" width="80" height="65" rx="6" fill="rgba(88,166,255,0.08)" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="180" y="75" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">VLM</text>
+      <text x="180" y="92" text-anchor="middle" fill="#8b949e" font-size="9">(70+ steps for 10 boxes)</text>
+
+      <!-- Arrow -->
+      <line x1="105" y1="82" x2="138" y2="82" stroke="#30363d" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+      <!-- Token stream output -->
+      <text x="280" y="55" fill="#8b949e" font-size="10">→</text>
+
+      <!-- Token boxes with sequential animation -->
+      <g class="anim-drop d1"><rect x="295" y="55" width="38" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="314" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;box&gt;</text></g>
+      <g class="anim-drop d2"><rect x="338" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="350" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;5&gt;</text></g>
+      <g class="anim-drop d3"><rect x="368" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="380" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;1&gt;</text></g>
+      <g class="anim-drop d4"><rect x="398" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="410" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;3&gt;</text></g>
+      <g class="anim-drop d5"><rect x="428" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="440" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;2&gt;</text></g>
+      <g class="anim-drop d6"><rect x="458" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="470" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;8&gt;</text></g>
+      <g class="anim-drop d7"><rect x="488" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="500" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;4&gt;</text></g>
+      <g class="anim-drop d8"><rect x="518" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="530" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;0&gt;</text></g>
+      <g class="anim-drop d9"><rect x="548" y="55" width="25" height="28" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.2"/><text x="560" y="74" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">&lt;/box&gt;</text></g>
+
+      <text x="620" y="55" fill="#30363d" font-size="14">. . .</text>
+
+      <!-- Slow indicator -->
+      <circle cx="450" cy="130" r="22" fill="none" stroke="#ff7b72" stroke-width="1.5" stroke-dasharray="4 3"/>
+      <text x="450" y="125" text-anchor="middle" fill="#ff7b72" font-size="9">Step</text>
+      <text x="450" y="138" text-anchor="middle" fill="#ff7b72" font-size="12" font-weight="700">1×</text>
+      <text x="450" y="160" text-anchor="middle" fill="#8b949e" font-size="9">Autoregressive</text>
+
+      <!-- Right: PBD -->
+      <text x="670" y="30" text-anchor="middle" fill="#7ee787" font-size="14" font-weight="600">Parallel Box Decoding (LocateAnything)</text>
+
+      <!-- Input image -->
+      <rect x="610" y="55" width="70" height="55" rx="5" fill="none" stroke="#30363d" stroke-width="1.5"/>
+      <text x="645" y="87" text-anchor="middle" fill="#8b949e" font-size="10">Image</text>
+
+      <!-- VLM box -->
+      <rect x="720" y="50" width="90" height="65" rx="6" fill="rgba(126,231,135,0.06)" stroke="#7ee787" stroke-width="1.5"/>
+      <text x="765" y="75" text-anchor="middle" fill="#7ee787" font-size="10" font-weight="600">VLM</text>
+      <text x="765" y="92" text-anchor="middle" fill="#8b949e" font-size="9">(~10 steps for 10 boxes)</text>
+
+      <line x1="682" y1="82" x2="718" y2="82" stroke="#30363d" stroke-width="1.5" marker-end="url(#arrow2)"/>
+
+      <!-- 6-token block -->
+      <rect x="620" y="100" width="280" height="50" rx="8" fill="none" stroke="#7ee787" stroke-width="1.5" stroke-dasharray="4" class="anim-draw"/>
+      <text x="760" y="95" fill="#7ee787" font-size="9">Atomic Block (L=6)</text>
+
+      <g class="anim-drop d5"><rect x="628" y="107" width="42" height="32" rx="4" fill="rgba(88,166,255,0.12)" stroke="#58a6ff" stroke-width="1.5"/><text x="649" y="128" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;box&gt;</text></g>
+      <g class="anim-drop d6"><rect x="676" y="107" width="36" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="694" y="128" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;512&gt;</text></g>
+      <g class="anim-drop d7"><rect x="718" y="107" width="36" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="736" y="128" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;384&gt;</text></g>
+      <g class="anim-drop d8"><rect x="760" y="107" width="36" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="778" y="128" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;640&gt;</text></g>
+      <g class="anim-drop d9"><rect x="802" y="107" width="36" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="820" y="128" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;720&gt;</text></g>
+      <g class="anim-drop d9"><rect x="844" y="107" width="48" height="32" rx="4" fill="rgba(88,166,255,0.12)" stroke="#58a6ff" stroke-width="1.5"/><text x="868" y="128" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;/box&gt;</text></g>
+      <text x="760" y="170" text-anchor="middle" fill="#7ee787" font-size="12" font-weight="700">All 7 tokens → 1 step</text>
+
+      <!-- Speed indicator -->
+      <circle cx="450" cy="245" r="22" fill="none" stroke="#7ee787" stroke-width="1.5"/>
+      <text x="450" y="240" text-anchor="middle" fill="#7ee787" font-size="9">Step</text>
+      <text x="450" y="253" text-anchor="middle" fill="#7ee787" font-size="12" font-weight="700">2.5×</text>
+      <text x="450" y="275" text-anchor="middle" fill="#8b949e" font-size="9">Parallel MTP</text>
+
+      <!-- Tradeoff note -->
+      <rect x="100" y="210" width="300" height="110" rx="8" fill="rgba(255,166,87,0.06)" border-color="#ffa657" stroke="#ffa657" stroke-width="1" stroke-dasharray="4"/>
+      <text x="250" y="235" text-anchor="middle" fill="#ffa657" font-size="12" font-weight="600">Key Insight</text>
+      <text x="250" y="258" text-anchor="middle" fill="#8b949e" font-size="10">"Elevate geometric elements to</text>
+      <text x="250" y="273" text-anchor="middle" fill="#8b949e" font-size="10">atomic units rather than 1D streams."</text>
+      <text x="250" y="293" text-anchor="middle" fill="#8b949e" font-size="10">Intra-box geometric coupling is</text>
+      <text x="250" y="308" text-anchor="middle" fill="#8b949e" font-size="10">preserved within the block.</text>
+
+      <!-- Tradeoff right -->
+      <rect x="500" y="210" width="300" height="110" rx="8" fill="rgba(126,231,135,0.04)" stroke="#7ee787" stroke-width="1" stroke-dasharray="4"/>
+      <text x="650" y="235" text-anchor="middle" fill="#7ee787" font-size="12" font-weight="600">Result</text>
+      <text x="650" y="258" text-anchor="middle" fill="#8b949e" font-size="10">12.7 BPS (boxes/sec) on H100</text>
+      <text x="650" y="273" text-anchor="middle" fill="#8b949e" font-size="10">vs. 1.0–5.0 BPS for competitors</text>
+      <text x="650" y="293" text-anchor="middle" fill="#8b949e" font-size="10">Better mIoU at IoU=0.95 too —</text>
+      <text x="650" y="308" text-anchor="middle" fill="#8b949e" font-size="10">parallel & accurate isn't a tradeoff</text>
+    </svg>
+  </div>
+
+  <div class="source-footer">
+    Sources: <a href="https://arxiv.org/abs/2605.27365" target="_blank">Paper (arxiv:2605.27365)</a> — Sections 1 (Introduction), 3.1 (Model Architecture).<br>
+    Model card: <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/config.json" target="_blank">config.json</a> — architecture details.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: ARCHITECTURE -->
+<!-- ============================================================ -->
+<div id="architecture" class="section">
+  <h2>2. Architecture</h2>
+  <p class="subtitle">Moon-ViT native-resolution encoder + Qwen2.5-3B language decoder bridged by a 2-layer MLP.</p>
+
+  <!-- BIG ARCHITECTURE DIAGRAM -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="a3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/></marker>
+        <marker id="a4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7ee787"/></marker>
+        <marker id="a5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#d2a8ff"/></marker>
+      </defs>
+
+      <!-- SECTION: Vision Encoder -->
+      <text x="130" y="25" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">Moon-ViT-SO-400M</text>
+      <text x="130" y="42" text-anchor="middle" fill="#8b949e" font-size="10">Vision Encoder</text>
+
+      <!-- Image input -->
+      <rect x="30" y="60" width="80" height="60" rx="6" fill="none" stroke="#30363d" stroke-width="1.5"/>
+      <text x="70" y="85" text-anchor="middle" fill="#8b949e" font-size="9">Input Image</text>
+      <text x="70" y="100" text-anchor="middle" fill="#8b949e" font-size="8">(native res)</text>
+
+      <!-- Scan animation line -->
+      <line x1="30" y1="60" x2="30" y2="120" stroke="#58a6ff" stroke-width="2" opacity="0.6" class="anim-scan" style="transform-origin: 30px 90px; animation: scanLine 2s linear infinite;"/>
+
+      <!-- ViT blocks -->
+      <rect x="140" y="55" width="120" height="70" rx="8" fill="rgba(88,166,255,0.06)" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="200" y="78" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">Moon-ViT</text>
+      <text x="200" y="93" text-anchor="middle" fill="#8b949e" font-size="9">patch-14 · 27 layers</text>
+      <text x="200" y="108" text-anchor="middle" fill="#8b949e" font-size="8">1152 hidden · 16 heads</text>
+
+      <line x1="112" y1="90" x2="138" y2="90" stroke="#58a6ff" stroke-width="1.5" marker-end="url(#a3)"/>
+
+      <!-- Arrow to projector -->
+      <line x1="260" y1="90" x2="310" y2="90" stroke="#30363d" stroke-width="1.5" marker-end="url(#a3)"/>
+
+      <!-- SECTION: Projector -->
+      <text x="370" y="25" text-anchor="middle" fill="#ffa657" font-size="13" font-weight="700">MLP Projector</text>
+      <text x="370" y="42" text-anchor="middle" fill="#8b949e" font-size="10">2-Layer Bridge</text>
+
+      <rect x="320" y="55" width="100" height="70" rx="8" fill="rgba(255,166,87,0.06)" stroke="#ffa657" stroke-width="1.5"/>
+      <text x="370" y="78" text-anchor="middle" fill="#ffa657" font-size="10" font-weight="600">MLP ×2</text>
+      <text x="370" y="93" text-anchor="middle" fill="#8b949e" font-size="9">1152 → 2048</text>
+      <text x="370" y="108" text-anchor="middle" fill="#8b949e" font-size="8">SiLU activation</text>
+
+      <line x1="420" y1="90" x2="470" y2="90" stroke="#30363d" stroke-width="1.5" marker-end="url(#a3)"/>
+
+      <!-- SECTION: Language Decoder -->
+      <text x="620" y="25" text-anchor="middle" fill="#d2a8ff" font-size="13" font-weight="700">Qwen2.5-3B-Instruct</text>
+      <text x="620" y="42" text-anchor="middle" fill="#8b949e" font-size="10">Language Decoder</text>
+
+      <rect x="480" y="45" width="280" height="90" rx="8" fill="rgba(210,168,255,0.05)" stroke="#d2a8ff" stroke-width="1.5"/>
+      <text x="620" y="70" text-anchor="middle" fill="#d2a8ff" font-size="10" font-weight="600">Qwen2 Decoder</text>
+      <text x="620" y="85" text-anchor="middle" fill="#8b949e" font-size="9">36 layers · 2048 hidden · MQA (2 KV heads)</text>
+      <text x="620" y="100" text-anchor="middle" fill="#8b949e" font-size="9">RoPE θ=1M · sliding window 32K</text>
+      <text x="620" y="120" text-anchor="middle" fill="#7ee787" font-size="9" font-weight="600">Block-size = 6 (PBD mode)</text>
+
+      <line x1="760" y1="90" x2="810" y2="90" stroke="#d2a8ff" stroke-width="1.5" marker-end="url(#a5)"/>
+
+      <!-- OUTPUT SECTION -->
+      <text x="130" y="200" text-anchor="middle" fill="#7ee787" font-size="13" font-weight="700">Output: Sequence of Atomic Blocks</text>
+      <text x="130" y="217" text-anchor="middle" fill="#8b949e" font-size="10">Each block = 6 tokens = 1 bounding box</text>
+
+      <!-- Output blocks -->
+      <rect x="30" y="235" width="340" height="50" rx="8" fill="rgba(126,231,135,0.04)" stroke="#30363d" stroke-width="1"/>
+      <g class="anim-drop d1"><rect x="38" y="242" width="38" height="32" rx="4" fill="rgba(88,166,255,0.15)" stroke="#58a6ff" stroke-width="1.5"/><text x="57" y="263" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;box&gt;</text></g>
+      <g class="anim-drop d2"><rect x="82" y="242" width="40" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="102" y="263" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;312&gt;</text></g>
+      <g class="anim-drop d3"><rect x="128" y="242" width="40" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="148" y="263" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;156&gt;</text></g>
+      <g class="anim-drop d4"><rect x="174" y="242" width="40" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="194" y="263" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;680&gt;</text></g>
+      <g class="anim-drop d5"><rect x="220" y="242" width="40" height="32" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1.2"/><text x="240" y="263" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;500&gt;</text></g>
+      <g class="anim-drop d6"><rect x="266" y="242" width="48" height="32" rx="4" fill="rgba(88,166,255,0.15)" stroke="#58a6ff" stroke-width="1.5"/><text x="290" y="263" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;/box&gt;</text></g>
+
+      <text x="390" y="263" fill="#30363d" font-size="18" font-weight="bold">···</text>
+
+      <!-- Block 2 -->
+      <rect x="420" y="235" width="180" height="50" rx="8" fill="rgba(210,168,255,0.04)" stroke="#30363d" stroke-width="1"/>
+      <g class="anim-drop d4"><rect x="428" y="242" width="38" height="32" rx="4" fill="rgba(210,168,255,0.12)" stroke="#d2a8ff" stroke-width="1.5"/><text x="447" y="263" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">&lt;ref&gt;</text></g>
+      <g class="anim-drop d5"><rect x="472" y="242" width="60" height="32" rx="4" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="502" y="263" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">person</text></g>
+      <g class="anim-drop d6"><rect x="538" y="242" width="50" height="32" rx="4" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="563" y="263" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">&lt;/ref&gt;</text></g>
+
+      <!-- Block labels -->
+      <text x="200" y="305" text-anchor="middle" fill="#58a6ff" font-size="10" font-weight="600">Box Block</text>
+      <text x="200" y="320" text-anchor="middle" fill="#8b949e" font-size="8">(x1, y1, x2, y2)</text>
+      <text x="510" y="305" text-anchor="middle" fill="#d2a8ff" font-size="10" font-weight="600">Semantic Block</text>
+      <text x="510" y="320" text-anchor="middle" fill="#8b949e" font-size="8">(object identity)</text>
+
+      <!-- Specifications table in SVG -->
+      <rect x="30" y="345" width="570" height="120" rx="8" fill="none" stroke="#30363d" stroke-width="1"/>
+      <text x="50" y="370" fill="#58a6ff" font-size="11" font-weight="600">Specification</text>
+
+      <text x="50" y="393" fill="#8b949e" font-size="9">vision_encoder</text>
+      <text x="170" y="393" fill="#e6edf3" font-size="9">MoonViT-SO-400M (patch-14, 27L, 1152d, 16 heads, native-res)</text>
+
+      <text x="50" y="410" fill="#8b949e" font-size="9">language_decoder</text>
+      <text x="170" y="410" fill="#e6edf3" font-size="9">Qwen2.5-3B-Instruct (36L, 2048d, MQA, RoPE θ=10⁶)</text>
+
+      <text x="50" y="427" fill="#8b949e" font-size="9">projector</text>
+      <text x="170" y="427" fill="#e6edf3" font-size="9">2-layer MLP, 1152→2048, SiLU</text>
+
+      <text x="50" y="444" fill="#8b949e" font-size="9">block_size</text>
+      <text x="170" y="444" fill="#e6edf3" font-size="9">L = 6 tokens per atomic prediction unit</text>
+
+      <text x="50" y="458" fill="#8b949e" font-size="9">vocab_size</text>
+      <text x="170" y="458" fill="#e6edf3" font-size="9">152,681 tokens (1,003 coord tokens + structural tokens)</text>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h3>Component Breakdown</h3>
+    <table>
+      <tr><th>Component</th><th>Implementation</th><th>Key Specs</th></tr>
+      <tr><td><strong>Vision Encoder</strong></td><td>Moon-ViT-SO-400M</td><td>Patch-14, 27 layers, 1152 hidden, 16 heads. Native resolution input — no resize. Init positional embeds at 64×64, interpolated bilinearly. 2×2 token merge kernel.</td></tr>
+      <tr><td><strong>Projector</strong></td><td>MLP ×2 layers</td><td>1152 → 2048 dimensions, SiLU activation, connectors visual tokens to language decoder.</td></tr>
+      <tr><td><strong>Language Decoder</strong></td><td>Qwen2.5-3B-Instruct</td><td>36 layers, 2048 hidden, Multi-Query Attention (16 Q heads, 2 KV heads), RoPE θ=1,000,000, sliding window 32K.</td></tr>
+      <tr><td><strong>Attention</strong></td><td>Custom "magi"</td><td>Modified KV cache with range attention for native-resolution images. Supports block-causal + bidirectional intra-block mask.</td></tr>
+    </table>
+  </div>
+
+  <div class="source-footer">
+    Sources: <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/config.json" target="_blank">config.json</a> — vision_config, text_config, mlp_connector_layers=2.<br>
+    Paper §3.1 — architecture overview and backbone generalization (Table 4, §C.3).
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: TOKENIZATION -->
+<!-- ============================================================ -->
+<div id="tokenization" class="section">
+  <h2>3. Tokenization — The Coordinate Vocabulary</h2>
+  <p class="subtitle">1,001 discrete bins for normalized coordinates, plus structural tokens for block formatting.</p>
+
+  <!-- BINNED COORDINATE ANIMATION -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 360" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="30" text-anchor="middle" fill="#7ee787" font-size="14" font-weight="700">Coordinate Discretization</text>
+      <text x="450" y="50" text-anchor="middle" fill="#8b949e" font-size="11">Continuous float [0.0 — 1.0] → Integer bin [0 — 1000] → Single token &lt;N&gt;</text>
+
+      <!-- Continuous bar -->
+      <rect x="50" y="80" width="800" height="30" rx="6" fill="none" stroke="#30363d" stroke-width="1.5"/>
+      <!-- Gradient fill -->
+      <defs>
+        <linearGradient id="coordGrad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#0d419d"/>
+          <stop offset="100%" stop-color="#7ee787"/>
+        </linearGradient>
+      </defs>
+      <rect x="50" y="80" width="800" height="30" rx="6" fill="url(#coordGrad)" opacity="0.12"/>
+
+      <!-- Tick marks -->
+      <line x1="50" y1="110" x2="50" y2="118" stroke="#8b949e" stroke-width="1"/>
+      <text x="50" y="132" text-anchor="middle" fill="#8b949e" font-size="9">0.0</text>
+      <text x="50" y="144" text-anchor="middle" fill="#7ee787" font-size="9">&lt;0&gt; (151677)</text>
+
+      <line x1="450" y1="110" x2="450" y2="118" stroke="#8b949e" stroke-width="1"/>
+      <text x="450" y="132" text-anchor="middle" fill="#8b949e" font-size="9">0.5</text>
+      <text x="450" y="144" text-anchor="middle" fill="#7ee787" font-size="9">&lt;500&gt; (152177)</text>
+
+      <line x1="850" y1="110" x2="850" y2="118" stroke="#8b949e" stroke-width="1"/>
+      <text x="850" y="132" text-anchor="middle" fill="#8b949e" font-size="9">1.0</text>
+      <text x="850" y="144" text-anchor="middle" fill="#7ee787" font-size="9">&lt;1000&gt; (152677)</text>
+
+      <!-- Animated dot moving along bar -->
+      <circle cx="50" cy="95" r="6" fill="#7ee787">
+        <animate attributeName="cx" from="50" to="850" dur="4s" repeatCount="indefinite"/>
+      </circle>
+      <circle cx="700" cy="95" r="3" fill="#7ee787" opacity="0.4">
+        <animate attributeName="cx" from="50" to="850" dur="4s" repeatCount="indefinite"/>
+      </circle>
+
+      <!-- Sample conversion -->
+      <rect x="50" y="170" width="800" height="50" rx="8" fill="none" stroke="#30363d" stroke-width="1"/>
+      <text x="80" y="195" fill="#ffa657" font-size="12" font-family="monospace">x = 0.5137</text>
+      <text x="220" y="195" fill="#30363d" font-size="12">→</text>
+      <text x="250" y="195" fill="#58a6ff" font-size="12" font-family="monospace">floor(0.5137 × 1000) = 513</text>
+      <text x="440" y="195" fill="#30363d" font-size="12">→</text>
+      <text x="470" y="195" fill="#7ee787" font-size="12" font-family="monospace" font-weight="600">&lt;513&gt;</text>
+      <text x="550" y="195" fill="#8b949e" font-size="12" font-family="monospace">  (token ID 152189)</text>
+
+      <rect x="50" y="230" width="800" height="50" rx="8" fill="none" stroke="#30363d" stroke-width="1"/>
+      <text x="80" y="255" fill="#ffa657" font-size="12" font-family="monospace">y = 0.742</text>
+      <text x="210" y="255" fill="#30363d" font-size="12">→</text>
+      <text x="240" y="255" fill="#58a6ff" font-size="12" font-family="monospace">floor(0.742 × 1000) = 742</text>
+      <text x="430" y="255" fill="#30363d" font-size="12">→</text>
+      <text x="460" y="255" fill="#7ee787" font-size="12" font-family="monospace" font-weight="600">&lt;742&gt;</text>
+      <text x="530" y="255" fill="#8b949e" font-size="12" font-family="monospace">  (token ID 152418)</text>
+
+      <!-- Structural tokens -->
+      <text x="450" y="310" text-anchor="middle" fill="#58a6ff" font-size="13" font-weight="700">Structural Tokens</text>
+
+      <g class="anim-drop d1"><rect x="80" y="320" width="80" height="32" rx="4" fill="rgba(88,166,255,0.12)" stroke="#58a6ff" stroke-width="1.5"/><text x="120" y="341" text-anchor="middle" fill="#58a6ff" font-size="10" font-family="monospace">&lt;box&gt; (151668)</text></g>
+      <g class="anim-drop d2"><rect x="170" y="320" width="90" height="32" rx="4" fill="rgba(88,166,255,0.12)" stroke="#58a6ff" stroke-width="1.5"/><text x="215" y="341" text-anchor="middle" fill="#58a6ff" font-size="10" font-family="monospace">&lt;/box&gt; (151669)</text></g>
+      <g class="anim-drop d3"><rect x="270" y="320" width="80" height="32" rx="4" fill="rgba(210,168,255,0.1)" stroke="#d2a8ff" stroke-width="1.5"/><text x="310" y="341" text-anchor="middle" fill="#d2a8ff" font-size="10" font-family="monospace">&lt;ref&gt; (151672)</text></g>
+      <g class="anim-drop d4"><rect x="360" y="320" width="90" height="32" rx="4" fill="rgba(210,168,255,0.1)" stroke="#d2a8ff" stroke-width="1.5"/><text x="405" y="341" text-anchor="middle" fill="#d2a8ff" font-size="10" font-family="monospace">&lt;/ref&gt; (151673)</text></g>
+      <g class="anim-drop d5"><rect x="460" y="320" width="90" height="32" rx="4" fill="rgba(139,148,158,0.1)" stroke="#8b949e" stroke-width="1.5"/><text x="505" y="341" text-anchor="middle" fill="#8b949e" font-size="10" font-family="monospace">&lt;null&gt; (152678)</text></g>
+      <g class="anim-drop d6"><rect x="560" y="320" width="90" height="32" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.5"/><text x="605" y="341" text-anchor="middle" fill="#ff7b72" font-size="10" font-family="monospace">none (4064)</text></g>
+      <g class="anim-drop d7"><rect x="660" y="320" width="90" height="32" rx="4" fill="rgba(210,168,255,0.1)" stroke="#d2a8ff" stroke-width="1.5"/><text x="705" y="341" text-anchor="middle" fill="#d2a8ff" font-size="10" font-family="monospace">&lt;text_mask&gt;</text></g>
+      <g class="anim-drop d8"><rect x="760" y="320" width="90" height="32" rx="4" fill="rgba(255,166,87,0.1)" stroke="#ffa657" stroke-width="1.5"/><text x="805" y="341" text-anchor="middle" fill="#ffa657" font-size="10" font-family="monospace">&lt;switch&gt;</text></g>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h3>Token ID Layout</h3>
+    <table>
+      <tr><th>Token Range</th><th>Count</th><th>Purpose</th></tr>
+      <tr><td><code>151677</code> — <code>152677</code></td><td>1,001</td><td>Coordinate bins <code>&lt;0&gt;</code> through <code>&lt;1000&gt;</code>. Each maps to <code>coord / 1000.0</code>.</td></tr>
+      <tr><td><code>151668</code> / <code>151669</code></td><td>2</td><td>Box delimiters <code>&lt;box&gt;</code> / <code>&lt;/box&gt;</code>.</td></tr>
+      <tr><td><code>151672</code> / <code>151673</code></td><td>2</td><td>Ref (semantic) delimiters <code>&lt;ref&gt;</code> / <code>&lt;/ref&gt;</code>.</td></tr>
+      <tr><td><code>151676</code></td><td>1</td><td><code>&lt;text_mask&gt;</code> — mask token for MTP training stream.</td></tr>
+      <tr><td><code>152678</code></td><td>1</td><td><code>&lt;null&gt;</code> — padding for unoccupied positions within a block.</td></tr>
+      <tr><td><code>152679</code></td><td>1</td><td><code>&lt;switch&gt;</code> — signals NTP ↔ MTP mode switch.</td></tr>
+      <tr><td><code>4064</code></td><td>1</td><td><code>none</code> — indicates object not found (negative block).</td></tr>
+    </table>
+    <p style="margin-top:1rem; color:var(--text-dim);">The coordinate token range (<code>&lt;0&gt;</code>–<code>&lt;1000&gt;</code>) fits in a contiguous span of IDs 151677–152677, making range-check in the generation kernel a simple <code>coord_start_id &lt;= id &lt;= coord_end_id</code> comparison.</p>
+  </div>
+
+  <div class="source-footer">
+    Sources: <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/added_tokens.json" target="_blank">added_tokens.json</a> — full added vocabulary.<br>
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/special_tokens_map.json" target="_blank">special_tokens_map.json</a> — token definitions with IDs.<br>
+    Paper §4.3 (Table 6a) — coordinate representation ablation (Quantized wins over Textual & Bin-Bucket).<br>
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/generate_utils.py" target="_blank">generate_utils.py</a> — <code>decode_bbox_avg()</code> uses <code>coord_start_token_id</code>/<code>coord_end_token_id</code> for range detection.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: BLOCK FORMULATION -->
+<!-- ============================================================ -->
+<div id="block-formulation" class="section">
+  <h2>4. Block-Based Output Formulation</h2>
+  <p class="subtitle">Four block types compose the model's output — each is an atomic 6-token unit decoded in parallel.</p>
+
+  <!-- BLOCK TYPE ANIMATIONS -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="blockArr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#58a6ff"/></marker>
+      </defs>
+
+      <text x="450" y="30" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="700">Output Sequence: Blocks × N Objects</text>
+
+      <!-- Block 1: Box -->
+      <text x="30" y="70" fill="#58a6ff" font-size="10">(1) Box Block</text>
+      <g class="anim-drop d1">
+        <rect x="30" y="82" width="820" height="44" rx="8" fill="rgba(88,166,255,0.04)" stroke="#30363d" stroke-width="1" stroke-dasharray="3"/>
+        <rect x="38" y="89" width="36" height="28" rx="4" fill="rgba(88,166,255,0.18)" stroke="#58a6ff" stroke-width="2"/><text x="56" y="108" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;box&gt;</text>
+        <rect x="80" y="89" width="40" height="28" rx="4" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/><text x="100" y="108" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;312&gt;</text>
+        <rect x="126" y="89" width="40" height="28" rx="4" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/><text x="146" y="108" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;156&gt;</text>
+        <rect x="172" y="89" width="40" height="28" rx="4" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/><text x="192" y="108" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;680&gt;</text>
+        <rect x="218" y="89" width="40" height="28" rx="4" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/><text x="238" y="108" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;500&gt;</text>
+        <rect x="264" y="89" width="50" height="28" rx="4" fill="rgba(88,166,255,0.18)" stroke="#58a6ff" stroke-width="2"/><text x="289" y="108" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;/box&gt;</text>
+        <text x="330" y="108" fill="#8b949e" font-size="9">← x1    x2    y1    y2</text>
+      </g>
+
+      <!-- Block 2: Semantic -->
+      <text x="30" y="158" fill="#d2a8ff" font-size="10">(2) Semantic Block</text>
+      <g class="anim-drop d3">
+        <rect x="30" y="170" width="300" height="44" rx="8" fill="rgba(210,168,255,0.04)" stroke="#30363d" stroke-width="1" stroke-dasharray="3"/>
+        <rect x="38" y="177" width="36" height="28" rx="4" fill="rgba(210,168,255,0.15)" stroke="#d2a8ff" stroke-width="2"/><text x="56" y="196" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">&lt;ref&gt;</text>
+        <rect x="80" y="177" width="60" height="28" rx="4" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="110" y="196" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">person</text>
+        <rect x="146" y="177" width="70" height="28" rx="4" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="181" y="196" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">wearing</text>
+        <rect x="222" y="177" width="50" height="28" rx="4" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="247" y="196" text-anchor="middle" fill="#d2a8ff" font-size="9" font-family="monospace">&lt;/ref&gt;</text>
+      </g>
+
+      <!-- More semantic blocks -->
+      <text x="340" y="196" fill="#d2a8ff" font-size="9">→ spans multiple blocks if expression is long</text>
+
+      <!-- Block 3: Negative -->
+      <text x="30" y="248" fill="#ff7b72" font-size="10">(3) Negative Block</text>
+      <g class="anim-drop d5">
+        <rect x="30" y="260" width="240" height="44" rx="8" fill="rgba(255,123,114,0.04)" stroke="#30363d" stroke-width="1" stroke-dasharray="3"/>
+        <rect x="38" y="267" width="36" height="28" rx="4" fill="rgba(88,166,255,0.18)" stroke="#58a6ff" stroke-width="2"/><text x="56" y="286" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;box&gt;</text>
+        <rect x="80" y="267" width="50" height="28" rx="4" fill="rgba(255,123,114,0.15)" stroke="#ff7b72" stroke-width="1.5"/><text x="105" y="286" text-anchor="middle" fill="#ff7b72" font-size="9" font-family="monospace">none</text>
+        <rect x="136" y="267" width="50" height="28" rx="4" fill="rgba(88,166,255,0.18)" stroke="#58a6ff" stroke-width="2"/><text x="161" y="286" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;/box&gt;</text>
+        <text x="198" y="286" fill="#8b949e" font-size="9">← object not found</text>
+      </g>
+
+      <!-- Block 4: Point (2-coord) -->
+      <text x="30" y="338" fill="#ffa657" font-size="10">(4) Point Block (pointing tasks)</text>
+      <g class="anim-drop d7">
+        <rect x="30" y="350" width="200" height="44" rx="8" fill="rgba(255,166,87,0.04)" stroke="#30363d" stroke-width="1" stroke-dasharray="3"/>
+        <rect x="38" y="357" width="36" height="28" rx="4" fill="rgba(88,166,255,0.18)" stroke="#58a6ff" stroke-width="2"/><text x="56" y="376" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;box&gt;</text>
+        <rect x="80" y="357" width="36" height="28" rx="4" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/><text x="98" y="376" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;45&gt;</text>
+        <rect x="122" y="357" width="36" height="28" rx="4" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/><text x="140" y="376" text-anchor="middle" fill="#7ee787" font-size="9" font-family="monospace">&lt;72&gt;</text>
+        <rect x="164" y="357" width="50" height="28" rx="4" fill="rgba(88,166,255,0.18)" stroke="#58a6ff" stroke-width="2"/><text x="189" y="376" text-anchor="middle" fill="#58a6ff" font-size="9" font-family="monospace">&lt;/box&gt;</text>
+        <text x="222" y="376" fill="#8b949e" font-size="9">← single point</text>
+      </g>
+
+      <!-- Probability factorization -->
+      <rect x="350" y="350" width="500" height="90" rx="8" fill="rgba(126,231,135,0.04)" stroke="#7ee787" stroke-width="1" stroke-dasharray="4"/>
+      <text x="600" y="375" text-anchor="middle" fill="#7ee787" font-size="12" font-weight="700">Probability Factorization</text>
+      <text x="600" y="397" text-anchor="middle" fill="#8b949e" font-size="11" font-family="monospace">P(B | Z,E) = ∏ᵢ P(bᵢ | b&lt;i, Z, E)</text>
+      <text x="600" y="417" text-anchor="middle" fill="#8b949e" font-size="10">Block-level factorization (across objects), parallel within-block.</text>
+      <text x="600" y="432" text-anchor="middle" fill="#8b949e" font-size="10">Blocks: b₁ (box), b₂ (ref), b₃ (box), b₄ (ref), ..., End.</text>
+
+      <!-- Padded block example -->
+      <rect x="30" y="450" width="820" height="60" rx="8" fill="none" stroke="#30363d" stroke-width="1" stroke-dasharray="3"/>
+      <text x="50" y="472" fill="#ffa657" font-size="10">Padded block (semantic spans 6 tokens max):</text>
+      <rect x="38" y="480" width="36" height="22" rx="3" fill="rgba(210,168,255,0.15)" stroke="#d2a8ff" stroke-width="1.5"/><text x="56" y="495" text-anchor="middle" fill="#d2a8ff" font-size="8" font-family="monospace">&lt;ref&gt;</text>
+      <rect x="80" y="480" width="50" height="22" rx="3" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="105" y="495" text-anchor="middle" fill="#d2a8ff" font-size="8" font-family="monospace">person</text>
+      <rect x="136" y="480" width="44" height="22" rx="3" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="158" y="495" text-anchor="middle" fill="#d2a8ff" font-size="8" font-family="monospace">left</text>
+      <rect x="186" y="480" width="50" height="22" rx="3" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="211" y="495" text-anchor="middle" fill="#d2a8ff" font-size="8" font-family="monospace">side</text>
+      <rect x="242" y="480" width="50" height="22" rx="3" fill="rgba(210,168,255,0.08)" stroke="#d2a8ff" stroke-width="1"/><text x="267" y="495" text-anchor="middle" fill="#d2a8ff" font-size="8" font-family="monospace">&lt;/ref&gt;</text>
+      <rect x="298" y="480" width="50" height="22" rx="3" fill="rgba(139,148,158,0.1)" stroke="#8b949e" stroke-width="1"/><text x="323" y="495" text-anchor="middle" fill="#8b949e" font-size="8" font-family="monospace">&lt;null&gt;</text>
+      <text x="360" y="495" fill="#30363d" font-size="14">← unused</text>
+    </svg>
+  </div>
+
+  <div class="source-footer">
+    Sources: Paper §3.1 — block-based output formulation, block types.<br>
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/generate_utils.py" target="_blank">generate_utils.py</a> — <code>handle_pattern()</code> recognizes coord_box, empty_box, point_box, ref_object patterns (lines 173–217).<br>
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/config.json" target="_blank">config.json</a> — <code>box_start_token_id</code>=151668, <code>box_end_token_id</code>=151669, <code>null_token_id</code>=152678.
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: TRAINING -->
+<!-- ============================================================ -->
+<div id="training" class="section">
+  <h2>5. Training — Dual NTP + MTP with Custom Attention Mask</h2>
+  <p class="subtitle">Joint optimization of autoregressive and parallel streams without leakage.</p>
+
+  <!-- ATTENTION MASK ANIMATION -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 500" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="30" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="700">Joint NTP–MTP Training</text>
+      <text x="450" y="50" text-anchor="middle" fill="#8b949e" font-size="11">x_all = x_vis ⊕ x_q ⊕ x_ntp ⊕ x_blk</text>
+
+      <!-- Input streams -->
+      <rect x="30" y="70" width="840" height="100" rx="8" fill="none" stroke="#30363d" stroke-width="1"/>
+      <text x="50" y="90" fill="#8b949e" font-size="10">Concatenated input sequence:</text>
+
+      <!-- x_vis -->
+      <rect x="38" y="100" width="130" height="50" rx="6" fill="rgba(88,166,255,0.08)" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="103" y="120" text-anchor="middle" fill="#58a6ff" font-size="9" font-weight="600">x_vis</text>
+      <text x="103" y="135" text-anchor="middle" fill="#8b949e" font-size="8">visual tokens</text>
+
+      <!-- x_q -->
+      <rect x="174" y="100" width="130" height="50" rx="6" fill="rgba(255,166,87,0.08)" stroke="#ffa657" stroke-width="1.5"/>
+      <text x="239" y="120" text-anchor="middle" fill="#ffa657" font-size="9" font-weight="600">x_q</text>
+      <text x="239" y="135" text-anchor="middle" fill="#8b949e" font-size="8">text query</text>
+
+      <!-- x_ntp -->
+      <rect x="310" y="100" width="120" height="50" rx="6" fill="rgba(255,123,114,0.06)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="370" y="120" text-anchor="middle" fill="#ff7b72" font-size="9" font-weight="600">x_ntp</text>
+      <text x="370" y="135" text-anchor="middle" fill="#8b949e" font-size="8">NTP stream</text>
+
+      <!-- x_blk -->
+      <rect x="436" y="100" width="120" height="50" rx="6" fill="rgba(126,231,135,0.06)" stroke="#7ee787" stroke-width="1.5"/>
+      <text x="496" y="120" text-anchor="middle" fill="#7ee787" font-size="9" font-weight="600">x_blk</text>
+      <text x="496" y="135" text-anchor="middle" fill="#8b949e" font-size="8">MTP blocks</text>
+
+      <!-- Labels -->
+      <text x="103" y="165" text-anchor="middle" fill="#58a6ff" font-size="8">Shared Context</text>
+      <text x="239" y="165" text-anchor="middle" fill="#ffa657" font-size="8">Shared Context</text>
+
+      <!-- Attention mask -->
+      <rect x="30" y="200" width="340" height="120" rx="8" fill="rgba(255,123,114,0.04)" stroke="#ff7b72" stroke-width="1"/>
+      <text x="45" y="220" fill="#ff7b72" font-size="10" font-weight="600">NTP Attention Mask</text>
+      <text x="45" y="240" fill="#8b949e" font-size="9">• Causal over context + NTP tokens</text>
+      <text x="45" y="255" fill="#8b949e" font-size="9">• CANNOT see x_blk (anti-leak)</text>
+      <text x="45" y="270" fill="#8b949e" font-size="9">• Each token only sees preceding tokens</text>
+      <text x="45" y="295" fill="#ff7b72" font-size="9" font-weight="600">→ Preserves language capability</text>
+
+      <rect x="400" y="200" width="470" height="120" rx="8" fill="rgba(126,231,135,0.04)" stroke="#7ee787" stroke-width="1"/>
+      <text x="415" y="220" fill="#7ee787" font-size="10" font-weight="600">MTP Attention Mask (x_blk)</text>
+      <text x="415" y="240" fill="#8b949e" font-size="9">• Block-causal: block i sees block &lt;i (not future)</text>
+      <text x="415" y="258" fill="#8b949e" font-size="9">• Intra-block: bidirectional — all 6 positions</text>
+      <text x="415" + 15 + "273".replace("273","273") y="fill:#8b949e;font-size:9">  attend to each other simultaneously</text>
+      <text x="415" y="290" fill="#8b949e" font-size="9">• Only first token visible; rest are [mask]ed</text>
+      <text x="415" y="310" fill="#7ee787" font-size="9" font-weight="600">→ Enables parallel prediction within block</text>
+
+      <!-- Intra-block attention visualization -->
+      <text x="450" y="350" fill="#7ee787" font-size="12" font-weight="600">Intra-Block Bidirectional Attention</text>
+
+      <!-- 6 positions of a block -->
+      <circle cx="240" cy="395" r="14" fill="rgba(126,231,135,0.2)" stroke="#7ee787" stroke-width="1.5" class="anim-pulse"/>
+      <text x="240" y="400" text-anchor="middle" fill="#7ee787" font-size="8" font-weight="700">P0</text>
+      <text x="240" y="425" text-anchor="middle" fill="#8b949e" font-size="7">&lt;box&gt;</text>
+
+      <circle cx="340" cy="395" r="14" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1" class="anim-pulse" style="animation-delay:0.2s"/>
+      <text x="340" y="400" text-anchor="middle" fill="#7ee787" font-size="8" font-weight="700">P1</text>
+      <text x="340" y="425" text-anchor="middle" fill="#8b949e" font-size="7">mask</text>
+
+      <circle cx="440" cy="395" r="14" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1" class="anim-pulse" style="animation-delay:0.4s"/>
+      <text x="440" y="400" text-anchor="middle" fill="#7ee787" font-size="8" font-weight="700">P2</text>
+      <text x="440" y="425" text-anchor="middle" fill="#8b949e" font-size="7">mask</text>
+
+      <circle cx="540" cy="395" r="14" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1" class="anim-pulse" style="animation-delay:0.6s"/>
+      <text x="540" y="400" text-anchor="middle" fill="#7ee787" font-size="8" font-weight="700">P3</text>
+      <text x="540" y="425" text-anchor="middle" fill="#8b949e" font-size="7">mask</text>
+
+      <circle cx="640" cy="395" r="14" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1" class="anim-pulse" style="animation-delay:0.8s"/>
+      <text x="640" y="400" text-anchor="middle" fill="#7ee787" font-size="8" font-weight="700">P4</text>
+      <text x="640" y="425" text-anchor="middle" fill="#8b949e" font-size="7">mask</text>
+
+      <circle cx="740" cy="395" r="14" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1" class="anim-pulse" style="animation-delay:1.0s"/>
+      <text x="740" y="400" text-anchor="middle" fill="#7ee787" font-size="8" font-weight="700">P5</text>
+      <text x="740" y="425" text-anchor="middle" fill="#8b949e" font-size="7">mask</text>
+
+      <!-- Bidirectional connections -->
+      <line x1="254" y1="395" x2="326" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.4"/>
+      <line x1="254" y1="395" x2="426" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.3"/>
+      <line x1="254" y1="395" x2="526" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.25"/>
+      <line x1="254" y1="395" x2="626" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.2"/>
+      <line x1="254" y1="395" x2="726" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.15"/>
+
+      <line x1="354" y1="395" x2="426" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.4"/>
+      <line x1="354" y1="395" x2="526" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.3"/>
+      <line x1="354" y1="395" x2="626" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.25"/>
+      <line x1="354" y1="395" x2="726" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.2"/>
+
+      <line x1="454" y1="395" x2="526" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.4"/>
+      <line x1="454" y1="395" x2="626" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.3"/>
+      <line x1="454" y1="395" x2="726" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.25"/>
+
+      <line x1="554" y1="395" x2="626" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.4"/>
+      <line x1="554" y1="395" x2="726" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.3"/>
+
+      <line x1="654" y1="395" x2="726" y2="395" stroke="#7ee787" stroke-width="0.8" opacity="0.4"/>
+
+      <!-- Loss -->
+      <rect x="30" y="445" width="840" height="40" rx="8" fill="rgba(126,231,135,0.04)" stroke="#7ee787" stroke-width="1"/>
+      <text x="450" y="463" text-anchor="middle" fill="#7ee787" font-size="11" font-weight="600">Loss: ℒ = ℒ_ntp + ℒ_mtp</text>
+      <text x="450" y="477" text-anchor="middle" fill="#8b949e" font-size="9">Jointly optimize both cross-entropy losses. MTP with block_size=1 ≡ standard NTP.</text>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h3>Training Pipeline (2-Stage SFT)</h3>
+    <table>
+      <tr><th>Stage</th><th>Data Mix</th><th>Purpose</th></tr>
+      <tr><td><strong>Base VLM pretraining</strong></td><td>World-knowledge alignment only (no detection/grounding data)</td><td>Establish vision-language foundational knowledge.</td></tr>
+      <tr><td><strong>Stage 1</strong></td><td>138M queries mixture across detection, grounding, OCR, layout, pointing</td><td>Acquire comprehensive grounding + detection capabilities.</td></tr>
+      <tr><td><strong>Stage 2</strong></td><td>20% general + 80% dense-object data (MOT20Det, SKU110K)</td><td>Sharpen dense detection and tiny-object handling.</td></tr>
+    </table>
+  </div>
+
+  <div class="source-footer">
+    Sources: Paper §3.2 — dual-formulation training, attention mask design.<br>
+    Paper §3.1 — joint probability factorization.<br>
+    Paper §4.1 — two-stage training pipeline, 138M query dataset.<br>
+    Paper §C.3 — backbone generalization (same mask applied to Qwen3-VL-4B).
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: INFERENCE -->
+<!-- ============================================================ -->
+<div id="inference" class="section">
+  <h2>6. On-Demand Inference Modes</h2>
+  <p class="subtitle">Dynamic tradeoff between speed and precision via hybrid MTP+AR decoding.</p>
+
+  <!-- INFERENCE MODE ANIMATION -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 480" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="30" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="700">Three Decoding Modes</text>
+
+      <!-- SLOW MODE -->
+      <rect x="30" y="55" width="260" height="170" rx="10" fill="rgba(255,123,114,0.04)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="160" y="80" text-anchor="middle" fill="#ff7b72" font-size="12" font-weight="700">Slow Mode</text>
+      <text x="160" y="97" text-anchor="middle" fill="#8b949e" font-size="9">Next-Token Prediction (AR)</text>
+
+      <!-- AR tokens dropping one by one -->
+      <rect x="50" y="110" width="30" height="22" rx="3" fill="rgba(255,123,114,0.18)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="65" y="125" text-anchor="middle" fill="#ff7b72" font-size="7" font-family="monospace">&lt;box&gt;</text>
+
+      <text x="90" y="125" fill="#30363d" font-size="14">→</text>
+
+      <rect x="105" y="110" width="24" height="22" rx="3" fill="rgba(255,123,114,0.18)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="117" y="125" text-anchor="middle" fill="#ff7b72" font-size="7" font-family="monospace">&lt;5&gt;</text>
+
+      <text x="137" y="125" fill="#30363d" font-size="14">→</text>
+
+      <rect x="150" y="110" width="24" height="22" rx="3" fill="rgba(255,123,114,0.18)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="162" y="125" text-anchor="middle" fill="#ff7b72" font-size="7" font-family="monospace">&lt;1&gt;</text>
+
+      <text x="182" y="125" fill="#30363d" font-size="14">→</text>
+
+      <rect x="195" y="110" width="24" height="22" rx="3" fill="rgba(255,123,114,0.18)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="207" y="125" text-anchor="middle" fill="#ff7b72" font-size="7" font-family="monospace">&lt;3&gt;</text>
+
+      <text x="227" y="125" fill="#30363d" font-size="14">→ . . .</text>
+
+      <text x="160" y="160" text-anchor="middle" fill="#8b949e" font-size="9">7 forward passes per box</text>
+      <text x="160" y="178" text-anchor="middle" fill="#8b949e" font-size="9">BPS: ~1.0 (baseline)</text>
+      <text x="160" y="200" text-anchor="middle" fill="#ffa657" font-size="9" font-weight="600">Upper bound on accuracy</text>
+      <text x="160" y="215" text-anchor="middle" fill="#8b949e" font-size="8">No format irregularity failures</text>
+
+      <!-- HYBRID MODE (default) -->
+      <rect x="320" y="55" width="260" height="170" rx="10" fill="rgba(126,231,135,0.05)" stroke="#7ee787" stroke-width="2"/>
+      <text x="450" y="80" text-anchor="middle" fill="#7ee787" font-size="12" font-weight="700">Hybrid Mode ★ Default</text>
+      <text x="450" y="97" text-anchor="middle" fill="#8b949e" font-size="9">MTP blocks, AR fallback on errors</text>
+
+      <rect x="340" y="110" width="76" height="22" rx="3" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/>
+      <text x="378" y="125" text-anchor="middle" fill="#7ee787" font-size="7" font-family="monospace">Box₁∥</text>
+
+      <text x="424" y="125" fill="#30363d" font-size="14">→</text>
+
+      <rect x="438" y="110" width="76" height="22" rx="3" fill="rgba(126,231,135,0.12)" stroke="#7ee787" stroke-width="1.5"/>
+      <text x="476" y="125" text-anchor="middle" fill="#7ee787" font-size="7" font-family="monospace">Box₂∥</text>
+
+      <text x="520" y="125" fill="#30363d" font-size="14">→ . . .</text>
+
+      <!-- Fallback indicator -->
+      <rect x="355" y="145" width="210" height="36" rx="5" fill="rgba(255,166,87,0.08)" stroke="#ffa657" stroke-width="1" stroke-dasharray="3"/>
+      <text x="460" y="161" text-anchor="middle" fill="#ffa657" font-size="8">⚠ If block malformed →</text>
+      <text x="460" y="174" text-anchor="middle" fill="#ffa657" font-size="8">discard block, switch to AR</text>
+
+      <text x="450" y="200" text-anchor="middle" fill="#8b949e" font-size="9">BPS: ~12.7</text>
+      <text x="450" y="215" text-anchor="middle" fill="#8b949e" font-size="9">Best accuracy-speed balance</text>
+
+      <!-- FAST MODE -->
+      <rect x="610" y="55" width="260" height="170" rx="10" fill="rgba(88,166,255,0.04)" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="740" y="80" text-anchor="middle" fill="#58a6ff" font-size="12" font-weight="700">Fast Mode</text>
+      <text x="740" y="97" text-anchor="middle" fill="#8b949e" font-size="9">Pure MTP — no AR fallback</text>
+
+      <rect x="630" y="110" width="76" height="22" rx="3" fill="rgba(88,166,255,0.12)" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="668" y="125" text-anchor="middle" fill="#58a6ff" font-size="7" font-family="monospace">∥step 1</text>
+
+      <text x="714" y="125" fill="#30363d" font-size="14">→</text>
+
+      <rect x="730" y="110" width="76" height="22" rx="3" fill="rgba(88,166,255,0.12)" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="768" y="125" text-anchor="middle" fill="#58a6ff" font-size="7" font-family="monospace">∥step 2</text>
+
+      <text x="814" y="125" fill="#30363d" font-size="10">···</text>
+
+      <text x="740" y="160" text-anchor="middle" fill="#8b949e" font-size="9">1 forward pass per block</text>
+      <text x="740" y="178" text-anchor="middle" fill="#8b949e" font-size="9">BPS: ~2.5× Hybrid</text>
+      <text x="740" y="200" text-anchor="middle" fill="#ff7b72" font-size="9" font-weight="600">Fails on boundary cases</text>
+      <text x="740" y="215" text-anchor="middle" fill="#8b949e" font-size="8">Format irregularity, spatial ambiguity</text>
+
+      <!-- Failure patterns -->
+      <text x="450" y="265" text-anchor="middle" fill="#ff7b72" font-size="12" font-weight="600">Why Fallback Is Needed</text>
+
+      <!-- Format irregularity example -->
+      <rect x="30" y="280" width="400" height="90" rx="8" fill="rgba(255,123,114,0.04)" stroke="#ff7b72" stroke-width="1"/>
+      <text x="50" y="300" fill="#ff7b72" font-size="10" font-weight="600">Format Irregularity</text>
+      <text x="50" y="318" fill="#8b949e" font-size="9">At category boundaries, the model mixes tokens:</text>
+      <!-- Show malformed output -->
+      <rect x="50" y="328" width="160" height="26" rx="4" fill="rgba(255,123,114,0.1)" stroke="#ff7b72" stroke-width="1.5"/>
+      <rect x="55" y="332" width="26" height="18" rx="2" fill="rgba(88,166,255,0.15)" stroke="#58a6ff" stroke-width="1"/><text x="68" y="345" text-anchor="middle" fill="#58a6ff" font-size="7" font-family="monospace">&lt;box&gt;</text>
+      <rect x="85" y="332" width="26" height="18" rx="2" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1"/><text x="98" y="345" text-anchor="middle" fill="#7ee787" font-size="7" font-family="monospace">&lt;211&gt;</text>
+      <rect x="115" y="332" width="26" height="18" rx="2" fill="rgba(210,168,255,0.15)" stroke="#d2a8ff" stroke-width="1.5"/><text x="128" y="345" text-anchor="middle" fill="#d2a8ff" font-size="7" font-family="monospace">&lt;/ref&gt;</text>
+      <rect x="145" y="332" width="26" height="18" rx="2" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1"/><text x="158" y="345" text-anchor="middle" fill="#7ee787" font-size="7" font-family="monospace">&lt;911&gt;</text>
+      <rect x="175" y="332" width="30" height="18" rx="2" fill="rgba(88,166,255,0.15)" stroke="#58a6ff" stroke-width="1"/><text x="190" y="345" text-arrow="middle" fill="#58a6ff" font-size="7" font-family="monospace">&lt;/box&gt;</text>
+
+      <text x="230" y="345" fill="#ff7b72" font-size="10">← WRONG!</text>
+
+      <!-- Spatial ambiguity -->
+      <rect x="460" y="280" width="410" height="90" rx="8" fill="rgba(255,123,114,0.04)" stroke="#ff7b72" stroke-width="1"/>
+      <text x="480" y="300" fill="#ff7b72" font-size="10" font-weight="600">Spatial Ambiguity</text>
+      <text x="480" y="318" fill="#8b949e" font-size="9">Dense grids → predicted coordinate between two objects:</text>
+      <!-- Show overlapping boxes -->
+      <rect x="500" y="328" width="60" height="26" rx="4" fill="rgba(88,166,255,0.1)" stroke="#58a6ff" stroke-width="1" stroke-dasharray="3"/>
+      <text x="530" y="345" text-anchor="middle" fill="#58a6ff" font-size="7">Object A</text>
+      <rect x="550" y="328" width="60" height="26" rx="4" fill="rgba(126,231,135,0.1)" stroke="#7ee787" stroke-width="1" stroke-dasharray="3"/>
+      <text x="580" y="345" text-anchor="middle" fill="#7ee787" font-size="7">Object B</text>
+      <!-- In-between prediction -->
+      <rect x="610" y="328" width="70" height="26" rx="4" fill="rgba(255,123,114,0.2)" stroke="#ff7b72" stroke-width="1.5"/>
+      <text x="645" y="345" text-anchor="middle" fill="#ff7b72" font-size="7" font-weight="600">← low IoU</text>
+      <text x="480" y="365" fill="#8b949e" font-size="9">NTP fallback gives a definitive choice at one boundary.</text>
+
+      <!-- Decoding strategy -->
+      <text x="450" y="405" text-anchor="middle" fill="#ffa657" font-size="13" font-weight="700">Hybrid Decoding Strategy</text>
+      <text x="450" y="425" text-anchor="middle" fill="#8b949e" font-size="10">1. Predict MTP block → 2. <code>is_valid_box_frame()</code> checks p(&lt;box&gt;)≥0.6 & top-k shape →</text>
+      <text x="450" y="442" text-anchor="middle" fill="#8b949e" font-size="10">3. If <code>'legal_box'</code> → decode coordinates via <code>decode_bbox_avg()</code> (top-k weighted average)</text>
+      <text x="450" y="459" text-anchor="middle" fill="#8b949e" font-size="10">4. If <code>'illegal_box'</code> → discard, switch to AR mode for this block</text>
+      <text x="450" y="473" text-anchor="middle" fill="#8b949e" font-size="10">5. If <code>'empty_box'</code> → output <code>&lt;box&gt;none&lt;/box&gt;</code> (object absent)</text>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h3>Bounding Box Decoding: Top-k Weighted Average</h3>
+    <p>Instead of taking the argmax at each coordinate position, LocateAnything averages over the top-k candidate coordinate tokens weighted by their probability:</p>
+    <pre>decoded_coord_i = Σₖ (prob_k × token_id_k) / Σₖ prob_k   for position ∈ {1,2,3,4}
+final_coords = [&lt;box&gt;, coord_1, coord_2, coord_3, coord_4, &lt;/box&gt;]</pre>
+    <p style="color:var(--text-dim); margin-top:0.5rem;">In hybrid mode, positions where the top-1 probability &lt; 0.9 and the valid-token span exceeds 60 bins are detected as "abnormal" and defaulted to 0 (flagging for AR fallback logic in downstream).</p>
+  </div>
+
+  <div class="source-footer">
+    Sources: Paper §3.3 — on-demand inference modes, Format Irregularity, Spatial Ambiguity.<br>
+    Paper §C.4 — mode analysis table.<br>
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/generate_utils.py" target="_blank">generate_utils.py</a> — <code>is_valid_box_frame()</code> (line 119), <code>decode_bbox_avg()</code> (line 155), <code>handle_pattern()</code> (line 173).
+  </div>
+</div>
+
+<!-- ============================================================ -->
+<!-- SECTION: NATIVE RESOLUTION -->
+<!-- ============================================================ -->
+<div id="native-resolution" class="section">
+  <h2>7. Native Resolution Handling</h2>
+  <p class="subtitle">Moon-ViT preserves fine-grained spatial details by operating at the image's original resolution.</p>
+
+  <!-- NATIVE RESOLUTION ANIMATION -->
+  <div class="svg-container">
+    <svg viewBox="0 0 900 400" xmlns="http://www.w3.org/2000/svg">
+      <text x="450" y="30" text-anchor="middle" fill="#e6edf3" font-size="15" font-weight="700">Variable Token Count Per Image</text>
+      <text x="450" y="50" text-anchor="middle" fill="#8b949e" font-size="11">num_tokens = H × W / (patch² × merge²) where patch=14, merge=2</text>
+
+      <!-- Image 1: small -->
+      <rect x="50" y="75" width="80" height="60" rx="6" fill="none" stroke="#58a6ff" stroke-width="1.5"/>
+      <text x="90" y="100" text-anchor="middle" fill="#8b949e" font-size="8">Small (224×224)</text>
+      <text x="90" y="115" text-anchor="middle" fill="#8b949e" font-size="8">→ 64 tokens</text>
+      <text x="90" y="128" text-anchor="middle" fill="#58a6ff" font-size="8">(16×16 grid)</text>
+
+      <!-- Image 2: medium -->
+      <rect x="200" y="65" width="140" height="90" rx="6" fill="none" stroke="#7ee787" stroke-width="1.5"/>
+      <text x="270" y="105" text-anchor="middle" fill="#8b949e" font-size="8">Medium (512×384)</text>
+      <text x="270" y="122" text-anchor="middle" fill="#8b949e" font-size="8">→ 224 tokens</text>
+      <text x="270" y="136" text-anchor="middle" fill="#7ee787" font-size="8">(32×24 grid)</text>
+
+      <!-- Image 3: large -->
+      <rect x="410" y="55" width="220" height="120" rx="6" fill="none" stroke="#d2a8ff" stroke-width="1.5"/>
+      <text x="520" y="105" text-anchor="middle" fill="#8b949e" font-size="8">Large (1024×768)</text>
+      <text x="520" y="122" text-anchor="middle" fill="#8b949e" font-size="8">→ 690 tokens</text>
+      <text x="520" y="140" text-anchor="middle" fill="#d2a8ff" font-size="8">(64×48 grid)</text>
+
+      <!-- Image 4: huge -->
+      <rect x="700" y="50" width="160" height="130" rx="6" fill="none" stroke="#ffa657" stroke-width="1.5"/>
+      <text x="780" y="100" text-anchor="middle" fill="#8b949e" font-size="8">Native (1920×1080)</text>
+      <text x="780" y="118" text-anchor="middle" fill="#8b949e" font-size="8">→ 2,592 tokens</text>
+      <text x="780" y="136" text-anchor="middle" fill="#ffa657" font-size="8">(120×72 grid)</text>
+
+      <!-- Token grid visualization (animated cells appearing) -->
+      <text x="450" y="200" text-anchor="middle" fill="#7ee787" font-size="12" font-weight="600">Token Grid Example (Medium image)</text>
+
+      <!-- Grid of dots representing visual tokens -->
+      <g id="gridAnim">
+        <!-- Row 1 -->
+        <circle cx="180" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.1s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="210" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.15s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="240" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.2s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="270" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.25s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="300" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.3s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="330" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.35s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="360" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.4s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="390" cy="235" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.45s" dur="0.3s" fill="freeze"/></circle>
+
+        <!-- Row 2 -->
+        <circle cx="180" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.3s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="210" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.35s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="240" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.4s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="270" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.45s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="300" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.5s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="330" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.55s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="360" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.6s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="390" cy="260" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.65s" dur="0.3s" fill="freeze"/></circle>
+
+        <!-- Row 3 -->
+        <circle cx="180" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.5s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="210" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.55s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="240" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.6s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="270" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.65s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="300" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.7s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="330" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.75s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="360" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.8s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="390" cy="285" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.85s" dur="0.3s" fill="freeze"/></circle>
+
+        <!-- Row 4 -->
+        <circle cx="180" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.7s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="210" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.75s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="240" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.8s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="270" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.85s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="300" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.9s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="330" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.95s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="360" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.0s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="390" cy="310" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.05s" dur="0.3s" fill="freeze"/></circle>
+
+        <!-- Row 5 -->
+        <circle cx="180" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.9s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="210" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="0.95s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="240" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.0s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="270" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.05s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="300" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.1s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="330" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.15s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="360" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.2s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="390" cy="335" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.25s" dur="0.3s" fill="freeze"/></circle>
+
+        <!-- Row 6 -->
+        <circle cx="180" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.1s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="210" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.15s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="240" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.2s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="270" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.25s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="300" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.3s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="330" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.35s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="360" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.4s" dur="0.3s" fill="freeze"/></circle>
+        <circle cx="390" cy="360" r="4" fill="#58a6ff" opacity="0"><animate attributeName="opacity" from="0" to="0.7" begin="1.45s" dur="0.3s" fill="freeze"/></circle>
+      </g>
+
+      <!-- Formula at bottom -->
+      <rect x="480" y="220" width="380" height="90" rx="8" fill="rgba(88,166,255,0.04)" stroke="#58a6ff" stroke-width="1"/>
+      <text x="670" y="245" text-anchor="middle" fill="#58a6ff" font-size="11" font-weight="600">Token Count Formula</text>
+      <text x="670" y="265" text-anchor="middle" fill="#8b949e" font-size="10" font-family="monospace">num_tokens = H × W / (14 × 14 × 2 × 2)</text>
+      <text x="670" y="282" text-anchor="middle" fill="#8b949e" font-size="10" font-family="monospace">= H × W / 784</text>
+      <text x="670" y="299" text-anchor="middle" fill="#8b949e" font-size="9">Position embeddings bilinearly interpolated from 64×64 init grid</text>
+    </svg>
+  </div>
+
+  <div class="card">
+    <h3>Processing Pipeline</h3>
+    <table>
+      <tr><th>Step</th><th>Component</th><th>Detail</th></tr>
+      <tr><td>1. Load</td><td><code>fetch_image()</code></td><td>Loads image at native resolution. Handles local files, HTTP URLs, base64, LMDB stores. Converts to RGB.</td></tr>
+      <tr><td>2. Tokenize</td><td>Image Processor</td><td>Calls LocateAnythingImageProcessor with the image at native resolution. Computes <code>image_grid_hws</code> array (H×W in patch units).</td></tr>
+      <tr><td>3. Embed</td><td>Moon-ViT</td><td>Produces visual token sequence at native grid resolution. Applies 2×2 token merge.</td></tr>
+      <tr><td>4. Project</td><td>MLP ×2</td><td>1152 → 2048 dims, SiLU activation. Positional embeddings interpolated from 64×64 init to native grid.</td></tr>
+      <tr><td>5. Decode</td><td>Qwen2.5</td><td>Receives projected visual tokens + text query → emits sequence of 6-token blocks at block_size=6.</td></tr>
+    </table>
+  </div>
+
+  <div class="source-footer">
+    Sources: <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/processing_locateanything.py" target="_blank">processing_locateanything.py</a> — <code>replace_media_placeholder()</code>, <code>image_grid_hws</code> computation.<br>
+    Paper §3.1 — native resolution, positional embedding interpolation.<br>
+    <a href="https://huggingface.co/nvidia/LocateAnything-3B/blob/main/image_processing_locateanything.py" target="_blank">image_processing_locateanything.py</a> — image processor config.
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div style="text-align:center; padding:3rem 0 2rem; color:var(--text-dim); border-top:1px solid var(--border); margin-top:4rem;">
+  <p style="font-size:0.85rem;">Documentation compiled from NVIDIA's paper (<a href="https://arxiv.org/abs/2605.27365" style="color:var(--accent)">arxiv:2605.27365</a>) and the <a href="https://huggingface.co/nvidia/LocateAnything-3B" style="color:var(--accent)">nvidia/LocateAnything-3B</a> model repository.</p>
+  <p style="font-size:0.75rem; margin-top:0.3rem;">All sources linked inline. SVG animations require a modern browser with SMIL & CSS animation support.</p>
+</div>
+
+</div>
+</body>
+</html>
